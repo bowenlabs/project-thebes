@@ -227,7 +227,7 @@ Never pass `env` through props. Never access bindings at module level.
 ```typescript
 ---
 // apps/krypto/workers/site/src/pages/[slug].astro
-const { env } = Astro.locals.runtime
+import { env } from 'cloudflare:workers'
 const database = db(env.DB)
 const settings = await database.select().from(siteSettings)
   .where(eq(siteSettings.id, 1)).get()

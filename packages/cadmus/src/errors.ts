@@ -24,11 +24,11 @@ export class CadmusError extends Error {
     public readonly code: string,
     public readonly cause?: unknown,
   ) {
-    super(message)
-    this.name = 'CadmusError'
+    super(message);
+    this.name = "CadmusError";
     // Maintains proper stack trace in V8
     if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor)
+      Error.captureStackTrace(this, this.constructor);
     }
   }
 }
@@ -36,63 +36,63 @@ export class CadmusError extends Error {
 /** Thrown by @bowenlabs/cadmus/auth primitives */
 export class CadmusAuthError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'AUTH_ERROR', cause)
-    this.name = 'CadmusAuthError'
+    super(message, "AUTH_ERROR", cause);
+    this.name = "CadmusAuthError";
   }
 }
 
 /** Thrown by @bowenlabs/cadmus/db primitives */
 export class CadmusDbError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'DB_ERROR', cause)
-    this.name = 'CadmusDbError'
+    super(message, "DB_ERROR", cause);
+    this.name = "CadmusDbError";
   }
 }
 
 /** Thrown by @bowenlabs/cadmus/storage primitives */
 export class CadmusStorageError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'STORAGE_ERROR', cause)
-    this.name = 'CadmusStorageError'
+    super(message, "STORAGE_ERROR", cause);
+    this.name = "CadmusStorageError";
   }
 }
 
 /** Thrown by @bowenlabs/cadmus/cache primitives */
 export class CadmusCacheError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'CACHE_ERROR', cause)
-    this.name = 'CadmusCacheError'
+    super(message, "CACHE_ERROR", cause);
+    this.name = "CadmusCacheError";
   }
 }
 
 /** Thrown by @bowenlabs/cadmus/email primitives */
 export class CadmusEmailError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'EMAIL_ERROR', cause)
-    this.name = 'CadmusEmailError'
+    super(message, "EMAIL_ERROR", cause);
+    this.name = "CadmusEmailError";
   }
 }
 
 /** Thrown by @bowenlabs/cadmus/session primitives */
 export class CadmusSessionError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'SESSION_ERROR', cause)
-    this.name = 'CadmusSessionError'
+    super(message, "SESSION_ERROR", cause);
+    this.name = "CadmusSessionError";
   }
 }
 
 /** Thrown by @bowenlabs/cadmus/rate-limit primitives */
 export class CadmusRateLimitError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'RATE_LIMIT_ERROR', cause)
-    this.name = 'CadmusRateLimitError'
+    super(message, "RATE_LIMIT_ERROR", cause);
+    this.name = "CadmusRateLimitError";
   }
 }
 
 /** Thrown by @bowenlabs/cadmus/queues primitives */
 export class CadmusQueueError extends CadmusError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'QUEUE_ERROR', cause)
-    this.name = 'CadmusQueueError'
+    super(message, "QUEUE_ERROR", cause);
+    this.name = "CadmusQueueError";
   }
 }

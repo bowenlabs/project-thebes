@@ -101,7 +101,7 @@
 │  CF Cache API (max-age=60s)         │  │    /admin/inbox                      │
 │                                     │  │    /admin/people                     │
 │  Bindings:                          │  │    /admin/settings                   │
-│    Astro.locals.runtime.env.*       │  │    /admin/design                     │
+│    env.* (cloudflare:workers)       │  │    /admin/design                     │
 └──────────────┬──────────────────────┘  │                                      │
                │                         │  Server functions:                   │
                │  shared binding IDs     │    getCloudflareContext().env.DB     │
@@ -159,7 +159,7 @@ apps/krypto/workers/site/src/app.ts (Hono)
                          (must be last; not astro/hono — see DECISIONS.md,
                          "astro/hono advanced routing is broken for custom
                          Cloudflare entrypoints")
-        ├── Astro.locals.runtime.env.DB → Drizzle query
+        ├── env.DB (cloudflare:workers) → Drizzle query
         ├── resolve design tokens from site_settings
         ├── render HTML with server-side <style> token injection
         ├── set Cache-Control header (max-age=60)
@@ -338,8 +338,8 @@ app.use('/admin/*', async (c, next) => {
 
 In Astro pages (Worker 1):
 ```typescript
-// ✅ Correct — Astro locals
-const { env } = Astro.locals.runtime
+// ✅ Correct — Astro v6 removed Astro.locals.runtime.env; use cloudflare:workers
+import { env } from 'cloudflare:workers'
 const database = db(env.DB)
 ```
 
@@ -799,7 +799,7 @@ Worker 1: Astro (apps/krypto/workers/site/) — public site
 │                            (must be last — not astro/hono, see DECISIONS.md)
 │
 └── Routes: /*, /[slug], /about, /contact, /login
-      └── Astro.locals.runtime.env.DB → Drizzle → render HTML
+      └── env.DB (cloudflare:workers) → Drizzle → render HTML
 
 Worker 2: TanStack Start (apps/krypto/workers/panel/) — Panel
 │
@@ -856,12 +856,12 @@ Hono middleware. If any layer requires workarounds, document them.
 
 **Build:**
 - Hono route: `GET /api/ping` → reads from D1, KV, R2 → returns JSON
-- Astro page: `GET /test` → `Astro.locals.runtime.env.DB` → Drizzle query → renders row
+- Astro page: `GET /test` → `env.DB` (from 'cloudflare:workers') → Drizzle query → renders row
 - Hono middleware: reads `c.env.KV` for rate limit check
 
 **Pass criteria:**
 - `c.env.DB` works in Hono routes with no shim
-- `Astro.locals.runtime.env.DB` works in Astro `.astro` files
+- `env.DB` (from 'cloudflare:workers') works in Astro `.astro` files
 - Both work in `wrangler dev` locally
 - Both work after `wrangler deploy` to production
 
@@ -880,7 +880,7 @@ Astro with no FOUC. DaisyUI OKLCH override order must be correct.
 
 ```astro
 ---
-const { env } = Astro.locals.runtime
+import { env } from 'cloudflare:workers'
 const settings = await db(env.DB).select().from(siteSettings)
   .where(eq(siteSettings.id, 1)).get()
 const tokenStyle = buildTokenStyle(settings)
@@ -1086,7 +1086,7 @@ only if it causes issues — do not add it later as an afterthought.
 **Worker 1 — Astro public site:**
 - [ ] **0.1** Scaffold Astro Worker: `pnpm create cloudflare@latest workers/site --framework=astro`
 - [ ] **0.2** Install DaisyUI for Astro (`@tailwindcss/vite`, `@plugin "daisyui"` in CSS)
-- [ ] **0.3** POC 1a — Astro page reads D1 via `Astro.locals.runtime.env.DB`
+- [ ] **0.3** POC 1a — Astro page reads D1 via `env.DB` (from 'cloudflare:workers')
 - [ ] **0.4** POC 2 — SSR token injection: Astro page with DaisyUI theme + OKLCH override, no FOUC
 - [ ] **0.5** Add Astro View Transitions to site layout (M8)
 - [ ] **0.6** Confirm login page is in Astro — not in Panel Worker (M6)

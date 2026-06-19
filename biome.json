@@ -1,12 +1,10 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     }
   },
   "formatter": {
@@ -16,20 +14,32 @@
     "lineWidth": 80
   },
   "files": {
-    "include": [
-      "packages/**/*.ts",
-      "packages/**/*.tsx",
-      "apps/**/*.ts",
-      "apps/**/*.tsx",
-      "apps/**/*.astro",
-      "examples/**/*.ts",
-      "examples/**/*.tsx"
-    ],
-    "ignore": [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/.wrangler/**",
-      "**/.astro/**"
+    "includes": [
+      "**/packages/**/*.ts",
+      "**/packages/**/*.tsx",
+      "**/apps/**/*.ts",
+      "**/apps/**/*.tsx",
+      "**/apps/**/*.astro",
+      "**/examples/**/*.ts",
+      "**/examples/**/*.tsx",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.wrangler",
+      "!**/.astro",
+      "!**/worker-configuration.d.ts"
     ]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.astro"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    }
+  ]
 }

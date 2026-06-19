@@ -9,6 +9,43 @@
 
 ---
 
+## 2026-06-19 — `Astro.locals.runtime.env` removed in Astro v6; use `cloudflare:workers`
+
+**Decision:** All binding access in Astro pages/components uses
+`import { env } from 'cloudflare:workers'`, not `Astro.locals.runtime.env`.
+
+**What broke:** Verifying POC 1a (Phase 0 — confirm an Astro page can read
+D1), `src/pages/test.astro` threw on every request:
+```
+Error: Astro.locals.runtime.env has been removed in Astro v6.
+Use 'import { env } from "cloudflare:workers"' instead.
+```
+
+**Root cause:** `Astro.locals.runtime.env`/`.cf`/`.caches`/`.ctx` were the
+Astro v5-era binding-access API. Astro v6 removed all four in favor of
+direct imports — confirmed in `@astrojs/cloudflare`'s own source
+(`utils/cf-helpers.js`), which throws this exact message on access:
+- `Astro.locals.runtime.env` → `import { env } from 'cloudflare:workers'`
+- `Astro.locals.runtime.cf` → `Astro.request.cf`
+- `Astro.locals.runtime.caches` → the global `caches` object
+- `Astro.locals.runtime.ctx` → `Astro.locals.cfContext`
+
+This is the second outdated-API mismatch found in one Phase 0 pass (after
+the DaisyUI v5 token names above) — both `CLAUDE.md` and `SECTION_1_PLAN.md`
+had code samples written against an older library API version that throws
+a clear, helpful runtime error rather than failing silently. Worth treating
+"throws on first real request" findings as gating, not just the silent
+ones — they're cheap to catch precisely because they're loud.
+
+**Fixed in:** `src/pages/test.astro`, `CLAUDE.md`, `SECTION_1_PLAN.md`
+(G1 gotcha + POC 1/POC 2 examples), `GETTING_STARTED.md` (Step 8,
+troubleshooting section).
+
+**Revisit if:** Astro ships a new binding-access convenience API — check
+release notes before reintroducing an `Astro.locals`-based pattern.
+
+---
+
 ## 2026-06-19 — DaisyUI v5 token names: confirmed `--color-primary`, not `--p`
 
 **Decision:** All theme CSS files and brand-color override `<style>` tags

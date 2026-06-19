@@ -5,4 +5,4 @@
 // Stub — implementation coming in Phase 0/1.
 // See README.md in this directory for the planned API.
 
-export {}
+export {};

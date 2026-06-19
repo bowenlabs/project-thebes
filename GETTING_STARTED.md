@@ -62,7 +62,7 @@ Cloudflare Account
 ├── Worker 1: Astro public site ←─────────────────┘
 │   apps/krypto/workers/site/
 │   ├── Hono entrypoint — custom routes → handle()
-│   ├── Astro SSR pages — bindings via Astro.locals.runtime.env
+│   ├── Astro SSR pages — bindings via env (cloudflare:workers)
 │   └── Serves: /, /[slug], /about, /contact, /coming-soon
 │
 └── Worker 2: TanStack Start Panel ←─────────────┘
@@ -311,12 +311,18 @@ curl http://localhost:4321/api/ping
 ```
 
 And confirm bindings also work from an Astro page (a separate code path —
-`Astro.locals.runtime.env`, populated by `handle()`, not by Hono's `c.env`):
+`import { env } from 'cloudflare:workers'`, not Hono's `c.env`).
+
+**`Astro.locals.runtime.env` was removed in Astro v6** — using it throws
+`Astro.locals.runtime.env has been removed in Astro v6. Use 'import { env }
+from "cloudflare:workers"' instead.` Confirmed during Phase 0 (2026-06-19):
+the v6 replacement is a top-level import, not an `Astro.locals` property.
+See [DECISIONS.md](./DECISIONS.md).
 
 ```astro
 ---
 // apps/krypto/workers/site/src/pages/test.astro
-const { env } = Astro.locals.runtime
+import { env } from 'cloudflare:workers'
 const result = await env.DB.prepare('SELECT 1 as ok').first()
 ---
 <p>D1 from Astro: {JSON.stringify(result)}</p>
@@ -923,7 +929,7 @@ krypto/
 
 **Worker 1 (Astro public site):**
 - [ ] **POC 1a** — `/api/ping` returns D1 + KV data from Hono route
-- [ ] **POC 1a** — Astro page reads D1 via `Astro.locals.runtime.env.DB`
+- [ ] **POC 1a** — Astro page reads D1 via `env.DB` (from 'cloudflare:workers')
 - [ ] **POC 2** — `/token-test` shows correct OKLCH override, no FOUC, correct with JS disabled
 - [ ] **DaisyUI** — DaisyUI classes render correctly in Astro pages
 
@@ -958,11 +964,15 @@ built `wrangler dev`). Switch to `handle()` from
 `@astrojs/cloudflare/handler` per Step 3. Full root cause in
 [DECISIONS.md](./DECISIONS.md).
 
-**`Astro.locals.runtime` is undefined**
+**`Astro.locals.runtime.env has been removed in Astro v6`**
+You're using the pre-v6 binding-access pattern. Use
+`import { env } from 'cloudflare:workers'` instead — it's a top-level
+import, not an `Astro.locals` property. Confirmed during Phase 0
+(2026-06-19); see [DECISIONS.md](./DECISIONS.md).
+
+**Bindings unavailable / `handle()` request fails**
 Confirm `src/app.ts`'s catch-all route calls `handle(c.req.raw, c.env,
 c.executionCtx)` and that it's registered last, after your custom routes.
-`handle()` is what populates `Astro.locals.runtime` — there's no separate
-middleware step required.
 
 **DaisyUI classes not applying**
 Remove any `tailwind.config.js` or PostCSS config. Use only
