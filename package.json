@@ -27,7 +27,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "pnpm test:cadmus && pnpm test:int && pnpm test:e2e",
-    "test:cadmus": "cd packages/cadmus && vitest run",
+    "test:cadmus": "pnpm --filter @bowenlabs/cadmus test",
     "test:int": "vitest run tests/int",
     "test:e2e": "playwright test"
   },
