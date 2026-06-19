@@ -9,6 +9,40 @@
 
 ---
 
+## 2026-06-19 — First production deploy; POC 4 verified post-deploy
+
+**Decision:** Both Workers deployed for the first time, completing the
+one acceptance-criteria item Phase 0 close-out couldn't verify locally
+("all 4 POC scenarios pass... after `wrangler deploy`").
+
+- **R2 bucket name mismatch fixed.** The Krypto→Citadel rename never
+  touched the actual Cloudflare resources — `wrangler.jsonc` already said
+  `bucket_name: "citadel-media"`, but the account only had `krypto-media`.
+  D1/KV bind by ID so this was harmless for them, but R2 binds by name, so
+  any upload would have failed at runtime. Created a fresh `citadel-media`
+  bucket (empty either way — nothing had been uploaded yet) and enabled
+  its public r2.dev URL for `MEDIA_URL`.
+- **Deployed:** `citadel-site` → `https://citadel-site.baylee-c3e.workers.dev`,
+  `citadel-panel` → `https://citadel-panel.baylee-c3e.workers.dev`.
+  Production D1 migrated via `pnpm db:migrate:prod` first.
+- **`SESSION_SECRET`** is the same value on both Workers' production
+  secrets (`wrangler secret put`) — required, since Panel's HMAC verify
+  must match whatever the (future, Phase 3) magic-link flow signs.
+- **Panel's `SERVER_URL`** now points at the real deployed site URL in
+  `wrangler.jsonc`. Local dev keeps `http://localhost:3000` via
+  `panel/.dev.vars`, which overrides the `wrangler.jsonc` default during
+  `wrangler dev`.
+- **POC 4 reverified against the live deploy:** `GET /api/cache/test`
+  returned `X-Cache: MISS` → `HIT` (identical body) → `POST
+  /api/cache/purge` → `MISS` again with a new timestamp. The cross-Worker
+  login redirect was also reverified live: `GET
+  https://citadel-panel.../admin` → `307` →
+  `https://citadel-site.../login?redirect=%2Fadmin`.
+
+Phase 0's acceptance criteria are now fully satisfied.
+
+---
+
 ## 2026-06-19 — Phase 0 close-out: milestones 0.6 and 0.12 completed
 
 **Decision:** The two milestones deliberately left open in the prior
