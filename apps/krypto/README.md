@@ -29,8 +29,8 @@ forms, CRM, and notifications — on infrastructure they own forever.
 wrangler login
 
 # Fork this repo, then:
-git clone https://github.com/YOUR_USERNAME/salvation
-cd salvation
+git clone https://github.com/YOUR_USERNAME/thebes
+cd thebes
 pnpm install
 
 # Create Cloudflare resources

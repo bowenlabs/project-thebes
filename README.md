@@ -1,4 +1,4 @@
-# Salvation
+# Thebes
 
 **Cadmus** — a V8-first, Cloudflare-native full-stack framework.
 **Krypto** — a free, open-source web platform built on Cadmus.
@@ -11,7 +11,7 @@
 ## What's in here
 
 ```
-salvation/
+thebes/
 ├── packages/
 │   └── cadmus/        @bowenlabs/cadmus — the framework
 ├── apps/
@@ -103,4 +103,4 @@ discriminatory, or harassing purposes.
 
 [BowenLabs](https://bowenlabs.com) — one person, built with care.
 
-*Salvation — Open source. Always free. Built with care.*
+*Thebes — Open source. Always free. Built with care.*

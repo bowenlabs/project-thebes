@@ -1,4 +1,5 @@
 import { handle } from "@astrojs/cloudflare/handler";
+import { purgeCache } from "@bowenlabs/cadmus/cache";
 import { Hono } from "hono";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -9,6 +10,21 @@ app.get("/api/ping", async (c) => {
   await c.env.KV.put("ping", "pong");
   const kv = await c.env.KV.get("ping");
   return c.json({ db: result, kv, worker: "site" });
+});
+
+app.get("/api/cache/check", (c) => {
+  return c.json({
+    cachesDefined: typeof caches !== "undefined",
+    cacheDefaultDefined:
+      typeof caches !== "undefined" && typeof caches.default !== "undefined",
+  });
+});
+
+app.post("/api/cache/purge", async (c) => {
+  const { url } = await c.req.json<{ url: string }>();
+  const start = Date.now();
+  await purgeCache(url);
+  return c.json({ ok: true, ms: Date.now() - start });
 });
 
 // 2. Astro SSR — fallback for everything else

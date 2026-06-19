@@ -26,7 +26,8 @@
       "!**/dist",
       "!**/.wrangler",
       "!**/.astro",
-      "!**/worker-configuration.d.ts"
+      "!**/worker-configuration.d.ts",
+      "!**/routeTree.gen.ts"
     ]
   },
   "overrides": [
@@ -37,6 +38,25 @@
           "correctness": {
             "noUnusedImports": "off",
             "noUnusedVariables": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/apps/krypto/core/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/custom/**", "@apps/krypto/custom/**"]
+                  }
+                ]
+              }
+            }
           }
         }
       }

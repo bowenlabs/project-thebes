@@ -16,9 +16,11 @@
 	},
 	"dependencies": {
 		"@astrojs/cloudflare": "^13.7.0",
+		"@bowenlabs/cadmus": "workspace:*",
 		"@tailwindcss/vite": "^4.3.1",
 		"astro": "^6.4.7",
 		"daisyui": "^5.5.23",
+		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.26",
 		"tailwindcss": "^4.3.1"
 	},

@@ -2,7 +2,15 @@
 // Cadmus is MIT licensed. See LICENSE in the repo root.
 //
 // @bowenlabs/cadmus/db
-// Stub — implementation coming in Phase 0/1.
-// See README.md in this directory for the planned API.
+//
+// Thin wrapper around Drizzle's D1 driver. Raw binding in, Drizzle
+// instance out — the schema is the caller's, never Cadmus's. Cadmus has
+// no opinion on what tables exist; that's app-specific.
 
-export {};
+import { drizzle } from "drizzle-orm/d1";
+
+export function db<
+  TSchema extends Record<string, unknown> = Record<string, never>,
+>(d1: D1Database, schema?: TSchema) {
+  return drizzle(d1, { schema });
+}

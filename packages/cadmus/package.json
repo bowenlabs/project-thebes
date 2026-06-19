@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bowenlabs/salvation",
+    "url": "https://github.com/bowenlabs/thebes",
     "directory": "packages/cadmus"
   },
   "keywords": [
@@ -90,5 +90,8 @@
     "dist",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "drizzle-orm": "^0.45.2"
+  }
 }

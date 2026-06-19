@@ -1,4 +1,4 @@
-# Salvation — Section 1 Plan
+# Thebes — Section 1 Plan
 
 > **Goal:** A deployable, Cloudflare-native web operating system that lets a
 > small business owner build pages, capture form submissions, manage contacts,
@@ -13,29 +13,29 @@
 
 ## Table of contents
 
-0. [Phase 0 — Framework evaluation](#phase-0--framework-evaluation)
 1. [Architecture overview (C4)](#1-architecture-overview-c4)
 2. [Data flow diagrams](#2-data-flow-diagrams)
 3. [Known gotchas and constraints](#3-known-gotchas-and-constraints)
 4. [Core/custom folder structure](#4-corecustom-folder-structure)
 5. [Update and maintenance model](#5-update-and-maintenance-model)
 6. [Phase map](#6-phase-map)
-7. [Phase 1 — Project foundation](#phase-1--project-foundation)
-8. [Phase 2 — Database and schema](#phase-2--database-and-schema)
-9. [Phase 3 — Authentication](#phase-3--authentication)
-10. [Phase 4 — Design system](#phase-4--design-system)
-11. [Phase 5 — Public site shell](#phase-5--public-site-shell)
-12. [Phase 6 — Page builder](#phase-6--page-builder)
-13. [Phase 7 — Form builder](#phase-7--form-builder)
-14. [Phase 8 — CRM and inbox](#phase-8--crm-and-inbox)
-15. [Phase 9 — Krypto Panel shell](#phase-9--krypto-panel-shell)
-16. [Phase 10 — Settings and design Panel](#phase-10--settings-and-design-panel)
-17. [Phase 11 — Media and R2](#phase-11--media-and-r2)
-18. [Phase 12 — Notifications](#phase-12--notifications)
-19. [Phase 13 — Seed, export, and hardening](#phase-13--seed-export-and-hardening)
-20. [Phase 14 — CI, testing, and accessibility audit](#phase-14--ci-testing-and-accessibility-audit)
-21. [Dependency graph](#21-dependency-graph)
-22. [Definition of done checklist](#22-definition-of-done-checklist)
+7. [Phase 0 — Framework evaluation](#phase-0--framework-evaluation)
+8. [Phase 1 — Project foundation](#phase-1--project-foundation)
+9. [Phase 2 — Database and schema](#phase-2--database-and-schema)
+10. [Phase 3 — Authentication](#phase-3--authentication)
+11. [Phase 4 — Design system](#phase-4--design-system)
+12. [Phase 5 — Public site shell](#phase-5--public-site-shell)
+13. [Phase 6 — Page builder](#phase-6--page-builder)
+14. [Phase 7 — Form builder](#phase-7--form-builder)
+15. [Phase 8 — CRM and inbox](#phase-8--crm-and-inbox)
+16. [Phase 9 — Krypto Panel shell](#phase-9--krypto-panel-shell)
+17. [Phase 10 — Settings and design Panel](#phase-10--settings-and-design-panel)
+18. [Phase 11 — Media and R2](#phase-11--media-and-r2)
+19. [Phase 12 — Notifications](#phase-12--notifications)
+20. [Phase 13 — Seed, export, and hardening](#phase-13--seed-export-and-hardening)
+21. [Phase 14 — CI, testing, and accessibility audit](#phase-14--ci-testing-and-accessibility-audit)
+22. [Dependency graph](#21-dependency-graph)
+23. [Definition of done checklist](#22-definition-of-done-checklist)
 
 ---
 
@@ -104,7 +104,7 @@
 │    env.* (cloudflare:workers)       │  │    /admin/design                     │
 └──────────────┬──────────────────────┘  │                                      │
                │                         │  Server functions:                   │
-               │  shared binding IDs     │    getCloudflareContext().env.DB     │
+               │  shared binding IDs     │    env.DB (cloudflare:workers)     │
                │                         │    → Drizzle → inferred return type  │
                │                         │                                      │
                │                         │  Auth middleware (middleware.ts):     │
@@ -183,8 +183,8 @@ apps/krypto/workers/panel/app/server.ts (custom entrypoint)
         │     ├── KV get session (retry x2, 100ms — eventual consistency)
         │     ├── valid   → attach user to context → continue
         │     └── invalid → redirect /login
-        └── /admin/* routes — TanStack Router, server functions via getCloudflareContext()
-              ├── server function → getCloudflareContext().env.DB → Drizzle query
+        └── /admin/* routes — TanStack Router, server functions via cloudflare:workers env import
+              ├── server function → env.DB (cloudflare:workers) → Drizzle query
               ├── return type inferred from Drizzle schema → component (no any)
               └── TanStack Query — client-side cache + mutations
 ```
@@ -346,12 +346,15 @@ const database = db(env.DB)
 In TanStack Start server functions (Worker 2):
 ```typescript
 // ✅ Correct — server function handler only
-import { createServerFn } from '@tanstack/react-start/server'
-import { getCloudflareContext } from '@tanstack/react-start/cloudflare'
+// getCloudflareContext()/@tanstack/react-start/cloudflare do not exist in
+// this version (@tanstack/react-start 1.168.26) — confirmed via Phase 0
+// POC 1b, see DECISIONS.md. Use a dynamic cloudflare:workers import inside
+// the handler, same as everywhere else bindings are accessed in this stack.
+import { createServerFn } from '@tanstack/react-start'
 
 export const getPages = createServerFn({ method: 'GET' })
   .handler(async () => {
-    const { env } = getCloudflareContext()
+    const { env } = await import('cloudflare:workers')
     return db(env.DB).select().from(pages).all()
   })
 ```
@@ -364,7 +367,7 @@ api.post('/api/form/:slug', async (c) => {
 })
 ```
 
-Never call `getCloudflareContext()` in client-side component code.
+Never import `cloudflare:workers` in client-side component code.
 Never pass `env` through props. Never access bindings at module level.
 All Panel data access goes through TanStack Start server functions.
 
@@ -428,8 +431,18 @@ async function kvGetWithRetry(kv: KVNamespace, key: string, retries = 2): Promis
 ### G4 — Cache invalidation via Cloudflare Cache API
 
 **Problem:** Cache invalidation
-is handled explicitly via the Cloudflare Cache API. `caches.default` is only
-available in production Workers — not in `wrangler dev`.
+is handled explicitly via the Cloudflare Cache API.
+
+**Correction, confirmed during Phase 0 (2026-06-19):** `caches.default` is
+actually available under `wrangler dev` in current wrangler/workerd
+versions (`wrangler@4.101.0` / `workerd@1.20260616.1`) — the claim below
+that it's unavailable in dev no longer holds for this version combo.
+Verified directly via a diagnostic route: `typeof caches !== 'undefined'`
+and `typeof caches.default !== 'undefined'` both `true` against a real
+built Worker under `wrangler dev`. Keep the dev-bypass branch in
+`cache.ts` as defensive code regardless (cheap insurance for older
+wrangler or other runtimes like `vitest-pool-workers`), but don't assume
+it's actually triggering without checking. See `DECISIONS.md`.
 
 **Solution:** All cache writes and purges go through `apps/krypto/core/lib/cache.ts`
 which checks for dev mode and skips gracefully:
@@ -455,7 +468,16 @@ export async function setCacheHeaders(
 
 Astro pages set `Cache-Control: public, max-age=60` on responses.
 After content saves, Hono routes call `purgeCache(url)` for affected paths.
-In dev, pages always render fresh — no cache behavior to test locally.
+
+**Setting `Cache-Control` alone does not populate the Workers Cache API.**
+Confirmed during Phase 0: for a custom Worker fetch handler, the Workers
+Cache API requires explicit `caches.default.match()`/`.put()` calls in the
+request path — a `Cache-Control` response header by itself doesn't make
+Cloudflare cache a dynamically-computed Worker response the way it caches
+plain static assets. "Page served from cache on second request" needs
+that explicit cache-aside logic built (most naturally as Hono middleware
+wrapping the SSR fallback) — not built yet, only `purgeCache()` itself has
+been verified working.
 
 **Affects:** All Astro public pages, `apps/krypto/core/lib/cache.ts`, all Hono content
 save routes (pages, settings, forms).
@@ -768,16 +790,16 @@ zero manual type maintenance:
 // Change a column in schema → TypeScript shows every Panel component
 // that needs updating before deploy
 
-// apps/krypto/workers/panel/app/server-functions/pages.ts
+// apps/krypto/workers/panel/src/server-functions/pages.ts
 export const getPages = createServerFn({ method: 'GET' })
   .handler(async () => {
-    const { env } = getCloudflareContext()
+    const { env } = await import('cloudflare:workers')
     return db(env.DB).select().from(pagesTable).all()
     // return type: InferSelectModel<typeof pagesTable>[]
     // inferred automatically — never written manually
   })
 
-// apps/krypto/workers/panel/app/routes/admin/pages/index.tsx
+// apps/krypto/workers/panel/src/routes/admin/pages/index.tsx
 const { data: pages } = useQuery({
   queryKey: ['pages'],
   queryFn: () => getPages(),
@@ -813,7 +835,7 @@ Worker 2: TanStack Start (apps/krypto/workers/panel/) — Panel
 │     └── TanStack Start handler — /admin/*, /login
 │
 └── /admin/* — auth-guarded via middleware.ts
-      └── server functions → getCloudflareContext().env.DB → Drizzle
+      └── server functions → env.DB (cloudflare:workers) → Drizzle
             └── return type inferred → TanStack Query component (no any)
 
 Shared:
@@ -904,54 +926,91 @@ const tokenStyle = buildTokenStyle(settings)
 
 ---
 
-### POC 3 — Auth middleware + TanStack Start Panel
+### POC 3 — Auth guard + TanStack Start Panel
 
-**Risk:** TanStack Start `middleware.ts` must protect `/admin/*` routes.
-Session cookie must be set correctly and read across requests. Login page
-lives in Worker 1 (Astro SSR). The auth flow crosses Workers — magic link
-request hits Worker 1's Astro login page, token verification hits Worker 2's
-Hono `/api/auth/verify`, session cookie is then read by Worker 2's middleware.
+**Risk:** `/admin/*` routes must be protected. Session cookie must be set
+correctly and read across requests. Login page lives in Worker 1 (Astro
+SSR). The auth flow crosses Workers — magic link request hits Worker 1's
+Astro login page, token verification hits Worker 2's Hono
+`/api/auth/verify`, session cookie is then read by Worker 2's guard.
+
+**Confirmed during Phase 0 (2026-06-19): use a route `beforeLoad` guard on
+a layout route, not `createMiddleware().server(...)` as a standalone
+default export.** `createMiddleware()` with no options defaults to
+**function** middleware (for wrapping individual server functions), not
+**request** middleware (for guarding entire routes) — request middleware
+also requires global registration via `createStart({ requestMiddleware:
+[...] })`, more machinery than a per-route guard needs. `beforeLoad` is
+TanStack Router's standard, well-documented mechanism for exactly this.
+Full investigation in `DECISIONS.md`.
 
 **Build:**
 - Astro SSR login page at `/login` in `apps/krypto/workers/site/`
-- `apps/krypto/workers/panel/app/middleware.ts` — guards `/admin/*`, Web Crypto HMAC verify + KV session lookup
-- If no valid session: `throw redirect({ to: '/login' })`
-- TanStack Start route `/admin/dashboard` — calls `requireAuth()` in loader, renders user email from session
+- `apps/krypto/workers/panel/app/middleware.ts` — `requireAuth`, a
+  `createServerFn`-wrapped Web Crypto HMAC verify + KV session lookup
+  (wrapped as a server function, not a plain async function, because
+  `getCookie()` is server-only and `beforeLoad` can run client-side
+  during SPA navigation)
+- `apps/krypto/workers/panel/src/routes/admin/route.tsx` — layout route
+  for `/admin`, `beforeLoad` calls `requireAuth()` and throws
+  `redirect({ to: '/login' })` if it returns `null`
+- `apps/krypto/workers/panel/src/routes/login.tsx` — placeholder login
+  page (full implementation is Phase 3)
 
 ```typescript
 // apps/krypto/workers/panel/app/middleware.ts
-export default createMiddleware().server(async ({ next, context }) => {
-  const cookie = context.request.headers.get('cookie') ?? ''
-  const match = cookie.match(/krypto_session=([^;]+)/)
-  if (!match) throw redirect({ to: '/login' })
+import { createServerFn } from '@tanstack/react-start'
+import { getCookie } from '@tanstack/react-start/server'
 
-  const [sessionId, sig] = match[1].split('.')
-  const { env } = getCloudflareContext()
+export const requireAuth = createServerFn({ method: 'GET' }).handler(async () => {
+  const cookieValue = getCookie('krypto_session')
+  if (!cookieValue) return null
+
+  const [sessionId, sig] = cookieValue.split('.')
+  if (!sessionId || !sig) return null
+
+  const { env } = await import('cloudflare:workers')
 
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(env.SESSION_SECRET),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
   )
-  const sigBytes = Uint8Array.from(atob(sig), c => c.charCodeAt(0))
+  const sigBytes = Uint8Array.from(atob(sig), (c) => c.charCodeAt(0))
   const valid = await crypto.subtle.verify(
     'HMAC', key, sigBytes, new TextEncoder().encode(sessionId)
   )
-  if (!valid) throw redirect({ to: '/login' })
+  if (!valid) return null
 
+  // Sessions live in env.KV — SESSION is Astro's unrelated framework feature
   const session = await env.KV.get(`session:${sessionId}`)
-  if (!session) throw redirect({ to: '/login' })
+  if (!session) return null
 
-  return next({ context: { user: JSON.parse(session) } })
+  return JSON.parse(session) as { email: string }
 })
 ```
 
-**Pass criteria:**
-- Unauthenticated request to `/admin/dashboard` (Worker 2) redirects to `/login`
-- Web Crypto returns valid hex token and HMAC — no Node.js crypto anywhere
-- After simulating a valid session cookie in KV: `/admin/dashboard` renders "authenticated"
-- After logout: cookie cleared, `/admin/*` redirects to `/login`
-- Works with `wrangler dev` on Worker 2 independently
-- Cookie behavior verified on custom domain post-deploy (G6)
+```typescript
+// apps/krypto/workers/panel/src/routes/admin/route.tsx
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { requireAuth } from '../../../app/middleware'
+
+export const Route = createFileRoute('/admin')({
+  beforeLoad: async () => {
+    const user = await requireAuth()
+    if (!user) throw redirect({ to: '/login' })
+    return { user }
+  },
+  component: () => <Outlet />,
+})
+```
+
+**Pass criteria — all verified end-to-end:**
+- Unauthenticated request to `/admin/pages` (Worker 2) redirects to `/login` (`307`) ✅
+- Web Crypto returns valid hex token and HMAC — no Node.js crypto anywhere ✅
+- After creating a valid session in KV + signed cookie: `/admin/pages` returns `200`, user threaded through `beforeLoad` context ✅
+- After logout: cookie cleared, `/admin/*` redirects to `/login` — not yet built (logout endpoint is still a stub, see Step 17)
+- Works with `wrangler dev` on Worker 2 independently ✅
+- Cookie behavior verified on custom domain post-deploy (G6) — not yet tested, requires a real deploy
 
 ---
 
@@ -982,15 +1041,17 @@ app.post('/api/pages/:id', async (c) => {
 ```
 
 **Pass criteria:**
-- Page is served from cache on second request (verify via response headers)
-- After purge: next request fetches fresh content from D1
-- Purge completes in under 500ms
-- Works in production (Cloudflare Cache API is not available in `wrangler dev` — use a dev bypass flag)
-- Document the dev bypass pattern clearly
+- Purge completes in under 500ms ✅ confirmed — 4ms via `POST /api/cache/purge`
+- `caches.default` confirmed available under `wrangler dev` (current versions) via `GET /api/cache/check` ✅ — corrects the original assumption below
+- Page is served from cache on second request, fresh after purge — **not yet built**, needs explicit cache-aside `match()`/`put()` logic in the request path
+- Works in production — not yet tested, requires a real deploy
 
-**Note:** `caches.default` is only available in production Workers, not
-in `wrangler dev`. Add a dev bypass flag that skips cache writes/purges
-locally. This is expected behavior — document it, do not try to work around it.
+**Note (superseded — kept for history, see the correction above and
+`DECISIONS.md`):** the original assumption was that `caches.default` is
+only available in production Workers, not in `wrangler dev`, requiring a
+dev bypass flag. That's no longer accurate for current wrangler/workerd
+versions. The bypass flag is harmless to keep as defensive code, but
+don't assume it's the reason something works in dev — verify directly.
 
 ---
 
@@ -1092,19 +1153,19 @@ only if it causes issues — do not add it later as an afterthought.
 - [ ] **0.6** Confirm login page is in Astro — not in Panel Worker (M6)
 
 **Worker 2 — TanStack Start Panel:**
-- [ ] **0.7** Scaffold TanStack Start Worker: `pnpm create cloudflare@latest workers/panel --framework=tanstack-start`
+- [ ] **0.7** Scaffold TanStack Start Worker. Do not use `pnpm create cloudflare@latest . --framework=tanstack-start` — it hangs indefinitely on an arrow-key git prompt that ignores `--no-git` (confirmed bug, see `DECISIONS.md`). Call the TanStack CLI directly instead: `pnpm dlx @tanstack/cli@0.69.3 create panel --framework react --deployment cloudflare --no-git --non-interactive --yes --target-dir .`. Then add `apps/krypto/workers/*` to `pnpm-workspace.yaml`'s packages list — `apps/*` alone doesn't match this directory's depth — and run `pnpm install` from the repo root before `pnpm run generate-routes` in `panel/`.
 - [ ] **0.8** Configure same D1, KV, R2 binding IDs as Worker 1 in `apps/krypto/workers/panel/wrangler.jsonc`
 - [ ] **0.9** Install DaisyUI for TanStack Start (Vite — same pattern as Astro)
-- [ ] **0.10** POC 1b — Server function reads D1 via `getCloudflareContext().env.DB`
+- [ ] **0.10** POC 1b — Server function reads D1 via `env.DB` (from a dynamic 'cloudflare:workers' import)
 - [ ] **0.11** POC 3 — TanStack Start auth middleware + session cookie + `/admin/*` redirect
 - [ ] **0.12** POC 4 — Cache dev bypass + production cache purge after deploy
 - [ ] **0.13** Write one server function with Drizzle + verify type flows to component (no `any`)
 - [ ] **0.14** Write one Hono public API route in custom server entrypoint (`app/server.ts`)
-- [ ] **0.15** Verify `prerender = false` on all Panel routes that use server functions
+- [ ] **0.15** ~~Verify `prerender = false` on all Panel routes that use server functions~~ — **milestone doesn't apply.** Confirmed during Phase 0 (2026-06-19): TanStack Router/Start has no per-route `prerender`/`ssr` export in this version (no match anywhere in `@tanstack/react-router`'s route types) — this carries over an Astro-specific concept. With the Cloudflare deployment target, nothing is statically prerendered by default regardless; there's no flag to set or check. See `DECISIONS.md`.
 
 **Shared foundation:**
 - [ ] **0.16** Create `apps/krypto/core/db/schema.ts` with minimal schema (users + pages tables)
-- [ ] **0.17** Run `pnpm db:generate` + `pnpm db:migrate` — confirm both Workers see same tables
+- [ ] **0.17** Run `pnpm db:generate` + `pnpm db:migrate` — confirm both Workers see same tables. Requires `migrations_dir` on the D1 binding and a shared `--persist-to` path across `dev:site`/`dev:panel`/`db:migrate` — see Phase 1 milestone 1.34 and `DECISIONS.md`. Verify by inserting a row via `wrangler d1 execute` from one Worker's persisted state and reading it back from the other's `wrangler dev` instance, not just by confirming no error.
 - [ ] **0.18** Install Biome at repo root (M4) — `pnpm add -D @biomejs/biome && pnpm biome init`
 - [ ] **0.19** Add Biome boundary rule preventing `apps/krypto/core/` → `apps/krypto/custom/` imports (M3)
 - [ ] **0.20** Configure TypeScript path aliases: `@core/*` in both Workers
@@ -1143,7 +1204,7 @@ only if it causes issues — do not add it later as an afterthought.
 
 ## 4. Monorepo structure
 
-Salvation is a monorepo. Two critical boundaries:
+Thebes is a monorepo. Two critical boundaries:
 
 1. **Cadmus ↔ Krypto:** `packages/cadmus/` never imports from `apps/krypto/`.
    Krypto imports from `@bowenlabs/cadmus`. This boundary is permanent.
@@ -1155,7 +1216,7 @@ Salvation is a monorepo. Two critical boundaries:
 Both boundaries must be established in Phase 0 and never violated.
 
 ```
-salvation/
+thebes/
 │
 ├── packages/
 │   └── cadmus/                        ← @bowenlabs/cadmus — framework package
@@ -1235,7 +1296,7 @@ salvation/
 └── .github/
     └── workflows/
         ├── ci.yml                     ← lint + build on every push/PR
-        └── update.yml                 ← weekly upstream merge from bowenlabs/salvation
+        └── update.yml                 ← weekly upstream merge from bowenlabs/thebes
 ```
 
 ### The `krypto.config.ts` contract
@@ -1271,7 +1332,7 @@ export default config
 - Krypto-specific components, utilities, schema
 - Imports from `@bowenlabs/cadmus` — never from `apps/krypto/custom/`
 - Updated via upstream merge — operators never edit these files
-- PRs to `bowenlabs/salvation` that touch Krypto touch only `apps/krypto/core/`
+- PRs to `bowenlabs/thebes` that touch Krypto touch only `apps/krypto/core/`
 
 **Krypto custom (`apps/krypto/custom/`):**
 - Operator territory — Krypto never overwrites these files
@@ -1297,7 +1358,7 @@ export default config
 ### How Krypto updates flow to operator instances
 
 ```
-BowenLabs pushes to bowenlabs/salvation:main
+BowenLabs pushes to bowenlabs/thebes:main
           │
           ▼
 .github/workflows/update.yml runs weekly (Monday 09:00 UTC)
@@ -1470,9 +1531,9 @@ That all comes in Phase 2+.
 - [ ] **1.11** Install Phosphor React in `apps/krypto/workers/panel/`
 - [ ] **1.12** Install TipTap in `apps/krypto/workers/panel/`: `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/html` — Panel-only dependency, never imported from `apps/krypto/core/`
 - [ ] **1.13** Install Flowbite Charts in `apps/krypto/workers/panel/`: ApexCharts + Flowbite Charts wrapper — Panel-only dependency
-- [ ] **1.14** Create `apps/krypto/workers/panel/app/routes/__root.tsx` — bare TanStack Router root layout, imports `panel.css`
-- [ ] **1.15** Create `apps/krypto/workers/panel/app/routes/admin/dashboard.tsx` — placeholder route, `prerender = false`, calls `requireAuth()` in loader, renders "Dashboard"
-- [ ] **1.16** Create `apps/krypto/workers/panel/app/routes/login.tsx` — placeholder login page (full login implementation is Phase 3)
+- [ ] **1.14** Create `apps/krypto/workers/panel/src/routes/__root.tsx` — bare TanStack Router root layout, imports `panel.css`
+- [ ] **1.15** Create `apps/krypto/workers/panel/src/routes/admin/dashboard.tsx` — placeholder route, `prerender = false`, calls `requireAuth()` in loader, renders "Dashboard"
+- [ ] **1.16** Create `apps/krypto/workers/panel/src/routes/login.tsx` — placeholder login page (full login implementation is Phase 3)
 - [ ] **1.17** Confirm `apps/krypto/workers/panel/.dev.vars` exists and is in `.gitignore`; create `apps/krypto/workers/panel/.dev.vars.example` with same keys as Worker 1
 - [ ] **1.18** Confirm `export const prerender = false` on all Panel routes that use server functions — add lint comment or Biome rule to catch regressions
 
@@ -1528,10 +1589,10 @@ That all comes in Phase 2+.
 **Root tooling and scripts:**
 - [ ] **1.32** Confirm `drizzle.config.ts` at repo root points at `apps/krypto/core/db/schema.ts` and `apps/krypto/core/db/migrations/`
 - [ ] **1.33** Confirm `biome.json` at repo root covers `apps/krypto/core/`, `apps/krypto/workers/site/src/`, `apps/krypto/workers/panel/app/`, `apps/krypto/custom/` — promoted from Phase 0
-- [ ] **1.34** Confirm root `package.json` scripts from Phase 0 are complete and correct:
+- [ ] **1.34** Confirm root `package.json` scripts from Phase 0 are complete and correct. Note `dev:site`/`dev:panel`/`db:migrate` all need a **shared** `--persist-to` path — confirmed during Phase 0 (2026-06-19) that `wrangler dev` defaults its local D1 persistence to its own working directory, so two Workers sharing a `database_id` do *not* automatically share local data without this. `db:migrate` also needs `--config` (no wrangler config exists at the repo root) and the targeted config needs `migrations_dir` pointing at Drizzle's actual output, not the default `./migrations`. See `DECISIONS.md`:
   ```json
-  "dev:site":        "cd workers/site && wrangler dev --port 3000",
-  "dev:panel":       "cd workers/panel && wrangler dev --port 3001",
+  "dev:site":        "cd workers/site && wrangler dev --port 3000 --persist-to ../../../../.wrangler/state",
+  "dev:panel":       "cd workers/panel && wrangler dev --port 3001 --persist-to ../../../../.wrangler/state",
   "dev":             "concurrently \"pnpm dev:site\" \"pnpm dev:panel\"",
   "build:site":      "cd workers/site && astro build",
   "build:panel":     "cd workers/panel && vite build",
@@ -1540,8 +1601,8 @@ That all comes in Phase 2+.
   "deploy:panel":    "cd workers/panel && wrangler deploy",
   "deploy":          "pnpm build && pnpm deploy:site && pnpm deploy:panel",
   "db:generate":     "drizzle-kit generate",
-  "db:migrate":      "wrangler d1 migrations apply krypto-db --local",
-  "db:migrate:prod": "wrangler d1 migrations apply krypto-db --remote",
+  "db:migrate":      "wrangler d1 migrations apply krypto-db --local --config apps/krypto/workers/site/wrangler.jsonc --persist-to ./.wrangler/state",
+  "db:migrate:prod": "wrangler d1 migrations apply krypto-db --remote --config apps/krypto/workers/site/wrangler.jsonc",
   "db:studio":       "drizzle-kit studio",
   "lint":            "biome check .",
   "format":          "biome format --write ."
@@ -1555,7 +1616,7 @@ That all comes in Phase 2+.
   - Must pass before any deploy
 - [ ] **1.37** Create `.github/workflows/update.yml`:
   - Trigger: schedule (weekly, Monday 09:00 UTC)
-  - Steps: fetch `bowenlabs/salvation:main` → merge → run CI → push if clean → open GitHub issue if conflicts
+  - Steps: fetch `bowenlabs/thebes:main` → merge → run CI → push if clean → open GitHub issue if conflicts
   - Never auto-deploys on conflict — operator resolves manually
 - [ ] **1.38** Create `CONTRIBUTING.md` noting: local dev requires both Workers running (`pnpm dev`), cookie auth must be tested on a custom domain not `workers.dev` (G6), `apps/krypto/core/` is never edited directly
 
@@ -1585,7 +1646,7 @@ That all comes in Phase 2+.
 - Email Workers `send_email` binding must be in both `wrangler.jsonc` files even though only Worker 2 sends email — binding declarations are per-Worker and Worker 1 may need it in future phases
 - `apps/krypto/workers/site/public/` is served as static assets by Astro — anything placed here is publicly accessible. Never put secrets, `.dev.vars`, or migration files here.
 - Both Workers must have `nodejs_compat` in `compatibility_flags` — missing this causes subtle runtime failures that are hard to debug
-- `pnpm-workspace.yaml` must list `apps/krypto/workers/site`, `apps/krypto/workers/panel`, and the repo root — otherwise `pnpm add` in a Worker directory won't hoist shared deps correctly
+- `pnpm-workspace.yaml`'s `packages` list must include a pattern matching `apps/krypto/workers/*` explicitly — `apps/*` alone only matches one directory level deep and silently excludes both Workers (three levels under `apps/`). **Confirmed during Phase 0 (2026-06-19):** with only `apps/*` in the list, `pnpm install` at the repo root reported "Already up to date" and did nothing for `panel/` — no error, no `node_modules`, no indication the package was never recognized as a workspace member. See `DECISIONS.md`.
 
 ### Acceptance criteria
 - `pnpm dev:site` and `pnpm dev:panel` each start independently with full binding access
@@ -1719,7 +1780,7 @@ across requests. Logout clears session.
   - Reads session from request headers (attached by middleware)
   - Throws if no session
   - Returns `{ userId, email, role }`
-- [ ] **3.11** Create placeholder `apps/krypto/workers/panel/app/routes/admin/dashboard.tsx` that calls `requireAuth()` in its loader and renders "Dashboard — authenticated"
+- [ ] **3.11** Create placeholder `apps/krypto/workers/panel/src/routes/admin/dashboard.tsx` that calls `requireAuth()` in its loader and renders "Dashboard — authenticated"
 - [ ] **3.12** Verify redirect loop does not occur (login page must not be behind middleware)
 - [ ] **3.13** Test end-to-end on custom domain (G6)
 
@@ -1887,12 +1948,12 @@ Panel. Blocks render correctly on the public site via `<BlockRenderer>`.
   - `columns` → recursive `<BlockRenderer>` per column
   - `divider` → `<hr>`
 - [ ] **6.2** Create `apps/krypto/core/lib/rich-text.ts` — `tiptapToHtml(content: JSONContent): string` using `@tiptap/html` (G11)
-- [ ] **6.3** Create Panel page list: `apps/krypto/workers/panel/app/routes/admin/pages/page.tsx`
+- [ ] **6.3** Create Panel page list: `apps/krypto/workers/panel/src/routes/admin/pages/page.tsx`
   - Fetch all pages sorted by `updatedAt` DESC
   - Table: title, slug, status, updatedAt
   - "New page" button → `/admin/pages/new`
   - Click row → `/admin/pages/[id]`
-- [ ] **6.4** Create Panel block canvas editor: `apps/krypto/workers/panel/app/routes/admin/pages/[id]/page.tsx`
+- [ ] **6.4** Create Panel block canvas editor: `apps/krypto/workers/panel/src/routes/admin/pages/[id]/page.tsx`
   - Load page by id (or blank for "new")
   - Render `<PageEditor>` client component
 - [ ] **6.5** Create `<PageEditor>` client component:
@@ -1953,8 +2014,8 @@ and trigger contact upsert + activity log.
 
 ### Milestones
 
-- [ ] **7.1** Create Panel form list: `apps/krypto/workers/panel/app/routes/admin/forms/page.tsx`
-- [ ] **7.2** Create Panel form builder: `apps/krypto/workers/panel/app/routes/admin/forms/[id]/page.tsx`
+- [ ] **7.1** Create Panel form list: `apps/krypto/workers/panel/src/routes/admin/forms/page.tsx`
+- [ ] **7.2** Create Panel form builder: `apps/krypto/workers/panel/src/routes/admin/forms/[id]/page.tsx`
   - Form name + slug fields
   - Field list with add / reorder / delete
   - Per-field editor: type picker, label, name (auto-generated from label), required toggle, placeholder, options (for select)
@@ -2014,7 +2075,7 @@ the people list. Activities display on the dashboard.
 
 ### Milestones
 
-- [ ] **8.1** Create Panel inbox: `apps/krypto/workers/panel/app/routes/admin/inbox/page.tsx`
+- [ ] **8.1** Create Panel inbox: `apps/krypto/workers/panel/src/routes/admin/inbox/page.tsx`
   - Two-pane layout: submission list (left) + detail (right)
   - List: sender name/email, form name, date, status badge
   - Filter tabs: All / New / Archived (with counts)
@@ -2024,11 +2085,11 @@ the people list. Activities display on the dashboard.
   - `requireAuth()`
   - UPDATE `form_submissions` set status = 'archived' where id = id
   - Optimistic update in UI via `useOptimistic`
-- [ ] **8.3** Create Panel people list: `apps/krypto/workers/panel/app/routes/admin/people/page.tsx`
+- [ ] **8.3** Create Panel people list: `apps/krypto/workers/panel/src/routes/admin/people/page.tsx`
   - Table: name, email, types, status, createdAt
   - Client-side search by name/email
   - Click row → contact detail (read-only in Section 1)
-- [ ] **8.4** Create contact detail view: `apps/krypto/workers/panel/app/routes/admin/people/[id]/page.tsx`
+- [ ] **8.4** Create contact detail view: `apps/krypto/workers/panel/src/routes/admin/people/[id]/page.tsx`
   - Contact fields (read-only display in Section 1)
   - Activity timeline for this contact
 - [ ] **8.5** Create `<ActivityFeed>` component:
@@ -2036,7 +2097,7 @@ the people list. Activities display on the dashboard.
   - Each item: icon (by type), summary, relative timestamp
   - Used on both dashboard and contact detail
 - [ ] **8.6** Create `<StatCard>` component — label, value, icon, optional href, optional badge
-- [ ] **8.7** Create Panel dashboard: `apps/krypto/workers/panel/app/routes/admin/dashboard/page.tsx`
+- [ ] **8.7** Create Panel dashboard: `apps/krypto/workers/panel/src/routes/admin/dashboard/page.tsx`
   - Stat cards: total pages, total contacts, unread submissions, total forms
   - Recent activity feed (last 20 activities)
   - Time-based greeting
@@ -2057,7 +2118,7 @@ that works on mobile and desktop. All Panel routes are reachable from the nav.
 
 ### Milestones
 
-- [ ] **9.1** Create `apps/krypto/workers/panel/app/routes/layout.tsx`:
+- [ ] **9.1** Create `apps/krypto/workers/panel/src/routes/layout.tsx`:
   - Fetch `site_settings` for site name, brand, theme
   - Fetch unread submission count (for inbox badge)
   - Wrap in `<BrandColorProvider>`
@@ -2100,7 +2161,7 @@ site after save.
 
 ### Milestones
 
-- [ ] **10.1** Create Panel settings page: `apps/krypto/workers/panel/app/routes/admin/settings/page.tsx`
+- [ ] **10.1** Create Panel settings page: `apps/krypto/workers/panel/src/routes/admin/settings/page.tsx`
   - Tabs: General, Contact, SEO, Export
   - General: site name, tagline, logo upload (links to Phase 11), favicon upload
   - Contact: email, phone, address, social links
@@ -2110,7 +2171,7 @@ site after save.
   - `requireAuth()`
   - UPDATE `site_settings` where id = 1
   - POST `/api/revalidate` for affected paths
-- [ ] **10.3** Create Panel design page: `apps/krypto/workers/panel/app/routes/admin/design/page.tsx`
+- [ ] **10.3** Create Panel design page: `apps/krypto/workers/panel/src/routes/admin/design/page.tsx`
   - Tabs: Theme, Colors, Typography, Spacing
   - Theme tab: `<ThemePresetPicker>` + homepage layout + dark mode + `<SettingsPreviewPane>`
   - Colors tab: `<BrandColorPicker>` (primary, secondary, tertiary) with OKLCH ramp + AA warning

@@ -9,6 +9,295 @@
 
 ---
 
+## 2026-06-19 — POC 3/4 fixes, bundle size measurement, two milestone corrections
+
+**Decision:** POC 3 uses a TanStack Router `beforeLoad` guard (not
+`createMiddleware`), confirmed end-to-end. POC 4's `caches.default`
+availability assumption is corrected. Bundle sizes are measured. Two
+Phase 0 milestones are flagged as needing correction, not just completion.
+
+**POC 3 fix:** `createMiddleware()` with no options defaults to
+**function** middleware, not **request** middleware — wrong tool for
+guarding routes, and request middleware requires global `createStart()`
+registration besides. Switched to `beforeLoad` on a `/admin` layout route,
+with the auth check wrapped in a `createServerFn` (not a plain async
+function) since `getCookie()` is server-only and `beforeLoad` can run
+client-side during navigation. Verified: unauthenticated `/admin/pages` →
+`307` to `/login`; valid signed cookie + real KV session → `200` with the
+user threaded through `beforeLoad` context. Caught a self-inflicted bug
+mid-verification: test session was written to the `SESSION` KV namespace
+(Astro's own unrelated framework feature) instead of `KV` (what the app
+actually reads).
+
+**POC 4 finding:** `caches.default` is actually available under
+`wrangler dev` with `wrangler@4.101.0`/`workerd@1.20260616.1` — confirmed
+via a direct diagnostic route, contradicting the original G4 gotcha and
+POC 4 write-up's assumption. Purge itself verified working (4ms, real
+`caches.default.delete()` call, not the dev-bypass branch). Not verified:
+"served from cache on second request" — that requires explicit
+`caches.default.match()`/`.put()` calls in the request path, which don't
+exist anywhere yet; setting a `Cache-Control` header alone doesn't
+populate the Workers Cache API for a custom Worker fetch handler.
+
+**Bundle sizes measured** (`wrangler deploy --dry-run`, milestone 0.22):
+Site 762.79 KiB (gzip 180.43 KiB), Panel 1089.47 KiB (gzip 238.05 KiB).
+Both well under the 10MB Workers Paid limit.
+
+**Milestone 0.15 doesn't map onto TanStack Start's actual API.** "Verify
+`prerender = false` on all Panel routes that use server functions" carries
+over an Astro-specific concept — TanStack Router/Start in this version has
+no per-route `prerender`/`ssr` export at all (confirmed: no match for
+either in `@tanstack/react-router`'s route types). With the Cloudflare
+deployment target, nothing is statically prerendered by default regardless
+— there's no flag to set or verify. This milestone needs rewording, not
+completion work.
+
+**Milestone 0.6 ("login page is Astro SSR, not Panel Worker") is not yet
+satisfied** despite a `src/routes/login.tsx` existing in Panel right now.
+That file is a deliberate POC-only placeholder — it was the fastest way to
+give `beforeLoad`'s `redirect({ to: '/login' })` a valid same-app route to
+target while testing the guard mechanic in isolation. It is **not** the
+real architecture: M6 still requires the actual login page to be an Astro
+SSR page in Worker 1, with the redirect crossing Workers (an absolute URL,
+not a same-app TanStack route). Don't mistake the placeholder for 0.6
+being done.
+
+**Fixed in:** `app/middleware.ts`, `src/routes/admin/route.tsx`,
+`src/routes/login.tsx` (placeholder), `app.ts` (cache diagnostic routes),
+`GETTING_STARTED.md` (Steps 18, 21), `SECTION_1_PLAN.md` (POC 3, POC 4,
+G4 gotcha).
+
+---
+
+## 2026-06-19 — Monorepo renamed: Salvation → Thebes
+
+**Decision:** The monorepo is renamed from "Salvation" to "Thebes" — fits
+the naming theme better. `Cadmus` and `Krypto` are unaffected (see
+`CLAUDE.md`'s naming table — those two were never in scope for this
+rename). The GitHub repository itself (`bowenlabs/salvation` →
+`bowenlabs/thebes`) is renamed by the operator directly; all in-repo text
+references, GitHub URLs, and the root `package.json` `name` field were
+updated to match ahead of that.
+
+**Fixed in:** `README.md`, `CADMUS.md`, `CONTRIBUTING.md`, `CLAUDE.md`,
+`GETTING_STARTED.md`, `SECTION_1_PLAN.md`, `package.json`,
+`packages/cadmus/package.json`, `packages/cadmus/README.md`,
+`.github/workflows/update.yml`, `apps/krypto/README.md`.
+
+**Not touched:** the 2026-06-18 "Project restructure" entry below, which
+records the original "Salvation" naming decision as a historical fact —
+rewriting decision-log entries after the fact defeats the point of a
+decision log. `.planning/` (an archival snapshot directory, separate from
+the live docs) was also left untouched — renaming inside an intentional
+snapshot would defeat its purpose as a snapshot.
+
+---
+
+## 2026-06-19 — `core/` dependency resolution, `@core/*` alias, and shared local D1
+
+**Decision:** `drizzle-orm` is installed at the **repo root**, not only
+inside each Worker. `core/db/schema.ts` and `core/lib/db.ts` are imported
+via the `@core/*` alias (not `@apps/krypto/core/*`). `dev:site`,
+`dev:panel`, and `db:migrate` all pass the same explicit `--persist-to`
+path. One Worker's `wrangler.jsonc` D1 binding sets `migrations_dir` to
+Drizzle's actual output path.
+
+**What broke, found while wiring up Phase 0 milestone 0.17 for real (not
+just writing the docs):**
+
+1. **`Cannot find module '@apps/krypto/core/lib/db'`** — a real file
+   (`src/server-functions/pages.ts`, created by following the docs) used
+   this alias. The canonical alias defined everywhere else in
+   `SECTION_1_PLAN.md`/`GETTING_STARTED.md` is `@core/*`; one code sample
+   had the wrong one and never got caught because it was never built.
+
+2. **`Rollup failed to resolve import "drizzle-orm/d1"`** even with
+   `drizzle-orm` correctly installed in each Worker's own `package.json`.
+   Root cause: `apps/krypto/core/` is not a declared workspace package —
+   pnpm's strict, non-hoisted `node_modules` means a file resolving a bare
+   import searches its own ancestor directories for `node_modules`, and
+   `core/`'s ancestor chain reaches the **repo root**, not either Worker's
+   `node_modules`. Installing `drizzle-orm` at the root with `-w` fixes it.
+   `drizzle-kit` doesn't need this — it's only invoked via CLI scripts,
+   never imported from `core/`.
+
+3. **`No configuration file found` running `pnpm db:migrate` from the repo
+   root.** The script (`wrangler d1 migrations apply krypto-db --local`)
+   has no wrangler config to read at the root. Needed `--config` pointing
+   at a Worker's `wrangler.jsonc`.
+
+4. **`No migrations present at .../workers/site/migrations`** after
+   fixing #3. `wrangler d1 migrations` defaults to a `migrations/` folder
+   relative to the wrangler config's own directory — not Drizzle's actual
+   `out` path (`apps/krypto/core/db/migrations`). Fixed by adding
+   `"migrations_dir": "../../core/db/migrations"` to the D1 binding.
+
+5. **The two Workers don't share local D1 data even with the same
+   `database_id`.** `wrangler dev`'s local persistence (`--persist-to`)
+   defaults to a path relative to its own working directory. `dev:site`
+   (run from `workers/site/`) and `dev:panel` (run from `workers/panel/`)
+   each got their own separate local D1 emulation. This is silent — no
+   error, just two Workers quietly looking at different "local" databases
+   despite the plan's stated intent ("both Workers see same tables").
+   Fixed by passing the same `--persist-to ./.wrangler/state` (relative
+   path adjusted per script) to `dev:site`, `dev:panel`, and `db:migrate`.
+
+**Verified end-to-end, not just "no error":** ran `pnpm db:generate` +
+`pnpm db:migrate`, confirmed the `pages` table query succeeds from both
+Workers (previously: `D1_ERROR: no such table` / `Failed query: select
+... from "pages"` on both), then inserted a row via `wrangler d1 execute`
+against the shared persisted state and confirmed it was visible from a
+query inside the *other* Worker's running `wrangler dev` instance — actual
+proof of shared data, not just shared configuration values.
+
+**Fixed in:** `package.json` (root scripts), `apps/krypto/workers/site/wrangler.jsonc`
+(`migrations_dir`), `apps/krypto/workers/panel/src/server-functions/pages.ts`
+(alias), `drizzle.config.ts` (new file), `apps/krypto/core/db/schema.ts` +
+`apps/krypto/core/lib/db.ts` (new files), both Workers' `tsconfig.json`
+(`@core/*` alias), `SECTION_1_PLAN.md` (milestones 0.17, 1.34, 2.5),
+`GETTING_STARTED.md` (Steps 16, 19, 20, troubleshooting section).
+
+**Revisit if:** `core/` ever becomes its own workspace package (would
+change the dependency-resolution story) or the monorepo's `--persist-to`
+convention changes when Section 2 adds more Workers.
+
+---
+
+## 2026-06-19 — Worker 2's custom Hono entrypoint: wrong `main`, `getCloudflareContext()` doesn't exist, `app/routes` should be `src/routes`
+
+**Decision:** Worker 2's custom entrypoint (`app/server.ts`) wraps TanStack
+Start's `server-entry` default export with Hono, exactly mirroring Worker
+1's `handle()` pattern — but with a different call signature, since
+TanStack's `RequestHandler` only takes a `Request`, not `(request, env,
+ctx)`. Bindings inside server functions are read via a dynamic
+`cloudflare:workers` import, never `getCloudflareContext()`. All TanStack
+Start application code (routes, components, server functions) lives under
+`src/`, matching what `@tanstack/cli`'s scaffold actually produces — `app/`
+is reserved for the one custom Worker entrypoint file.
+
+**What broke, three separate things, found while building this out:**
+
+1. **`wrangler.jsonc`'s `main` pointed at a file that doesn't exist.**
+   The original `"main": "app/server.ts"` was aspirational — written before
+   the file existed. Building with it failed the same way Worker 1's did
+   earlier: the Cloudflare Vite plugin resolves `main` against the
+   filesystem before any custom code is added. Confirmed
+   `@tanstack/react-start/server-entry` (the framework's own default
+   server entry, exposed as a package export) is the correct value *until*
+   you add your own custom entrypoint file — then `main` must point at
+   that file instead.
+
+2. **`getCloudflareContext()` from `@tanstack/react-start/cloudflare` does
+   not exist** in `@tanstack/react-start@1.168.26` — there is no
+   `./cloudflare` export at all (confirmed via the package's own
+   `exports` map). This is the same shape of bug as `Astro.locals.runtime.env`
+   above: an API referenced throughout the original docs that was never
+   verified against the actually-installed version. The real mechanism is
+   the same `cloudflare:workers` import used everywhere else in this
+   stack — but as a **dynamic** `await import('cloudflare:workers')`
+   inside the handler, not a static top-level import (verified working in
+   a server function; static import wasn't tested and isn't assumed safe
+   inside code that might also be reachable from a client bundle).
+   `createMiddleware` has the same kind of stale-subpath problem —
+   `@tanstack/react-start/middleware` doesn't exist; it's a root export of
+   `@tanstack/react-start`, same as `createServerFn`.
+
+3. **The scaffold puts everything under `src/`, not `app/`.** The original
+   docs and plan assumed an `app/routes/`, `app/server-functions/`
+   structure (mirroring a different, older TanStack Start convention).
+   The actual `@tanstack/cli@0.69.3` scaffold (confirmed by direct
+   inspection) generates `src/routes/`, `src/components/`, `src/styles.css`
+   — there is no `app/` directory at all until you create one yourself for
+   the custom entrypoint. Every future-phase milestone in `SECTION_1_PLAN.md`
+   referencing `app/routes/...` was updated to `src/routes/...`.
+
+**Verified end-to-end:** built `app/server.ts` with a custom `/api/ping`
+route (reads D1 + KV) and a catch-all `app.all('*', ...)` falling through
+to `startHandler.fetch(c.req.raw)`; added `hono` as a dependency (not
+present in the vanilla scaffold); confirmed via `wrangler dev` against the
+real built output that both the custom route and TanStack Start SSR
+(`/`, `/test`) return `200` with correct data.
+
+**Not verified:** the full auth-middleware/cookie/redirect flow shown in
+the "POC 3" section — only the import paths were confirmed against the
+package's type declarations, not run end-to-end. That's genuinely Phase 3
+scope; flagged in `GETTING_STARTED.md` rather than presented as confirmed.
+
+**Fixed in:** `apps/krypto/workers/panel/wrangler.jsonc`, `app/server.ts`
+(new file), `package.json` (added `hono`), `CLAUDE.md`, `SECTION_1_PLAN.md`
+(all `app/routes`/`app/server-functions` references across every future
+phase, the binding-access code samples, the architecture diagrams),
+`GETTING_STARTED.md` (Steps 11–18, the troubleshooting section, the
+milestone checklist).
+
+**Revisit if:** `@tanstack/react-start` ships a `./cloudflare` export in a
+future release, or TanStack Start's scaffold changes its directory
+convention again.
+
+---
+
+## 2026-06-19 — TanStack Start scaffold hangs on a git prompt; bypass create-cloudflare's wrapper
+
+**Decision:** Scaffold Worker 2 (Panel) by calling `@tanstack/cli` directly
+with its real non-interactive flags, not via `pnpm create cloudflare@latest
+. --framework=tanstack-start`.
+
+**What broke:** `pnpm create cloudflare@latest . --framework=tanstack-start`
+appeared to hang indefinitely with no error and no visible prompt.
+
+**Root cause:** `create-cloudflare` shells out to
+`pnpm dlx @tanstack/cli@0.69.3 create panel --deployment cloudflare
+--framework react --no-git`. That subprocess gets through dependency
+install and route generation, then stops at an arrow-key selection prompt:
+"Do you want to use git for version control? Yes / No" — **even though
+`--no-git` was already passed.** This looks like an upstream flag bug in
+`@tanstack/cli@0.69.3` (`--no-git` doesn't suppress the prompt). The prompt
+uses raw-mode TTY input, which a piped/scripted stdin can never satisfy —
+confirmed by reproducing it both via `create-cloudflare`'s wrapper and by
+invoking the TanStack CLI directly with only `--no-git` (no
+`--non-interactive`/`--yes`): both hang identically, in both a real
+terminal session and a backgrounded/piped one.
+
+**The fix:** call `@tanstack/cli` directly with `--non-interactive --yes`,
+which actually does suppress every prompt (unlike `--no-git` alone):
+```bash
+pnpm dlx @tanstack/cli@0.69.3 create panel \
+  --framework react \
+  --deployment cloudflare \
+  --no-git \
+  --non-interactive \
+  --yes \
+  --target-dir .
+```
+
+**A second bug compounded this while debugging:** the scaffold's own
+`generate-routes` step (`tsr generate`) failed on first run
+(`sh: tsr: command not found`) because it ran before `pnpm install` had
+actually completed — `@tanstack/router-cli` (which provides the `tsr`
+binary) was listed in `package.json` but never installed yet at that point
+in the scaffold sequence. Re-running `pnpm install` then `pnpm run
+generate-routes` afterward resolves it.
+
+**A third bug, only visible after fixing the first two:** `pnpm install`
+from the repo root reported "Already up to date" and silently produced no
+`node_modules` for `panel/` at all. Root cause: `apps/krypto/workers/panel`
+sits three directory levels under `apps/`, but `pnpm-workspace.yaml`'s
+`apps/*` pattern only matches one level deep — `panel` was never recognized
+as a workspace member. Phase 1's own gotcha list already called for
+`pnpm-workspace.yaml` to list both Workers explicitly, but the pattern
+actually checked in (`apps/*`) didn't satisfy that. Fixed by adding
+`apps/krypto/workers/*` to the `packages` list.
+
+**Fixed in:** `pnpm-workspace.yaml`, `SECTION_1_PLAN.md` (milestone 0.7 +
+Phase 1 gotcha), `GETTING_STARTED.md` (Step 10).
+
+**Revisit if:** a newer `@tanstack/cli` release fixes `--no-git`'s
+behavior, or the monorepo's directory depth under `apps/` changes again
+(re-check the workspace glob whenever a new Worker is added at a different
+nesting level).
+
+---
+
 ## 2026-06-19 — `Astro.locals.runtime.env` removed in Astro v6; use `cloudflare:workers`
 
 **Decision:** All binding access in Astro pages/components uses

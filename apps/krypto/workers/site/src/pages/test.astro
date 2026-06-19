@@ -1,7 +1,11 @@
 ---
 import { env } from "cloudflare:workers";
+import { db } from "@bowenlabs/cadmus/db";
+import { pages } from "@core/db/schema";
 
 const result = await env.DB.prepare("SELECT 1 as ok").first();
+const pagesResult = await db(env.DB).select().from(pages).all();
 ---
 
 <p>D1 from Astro: {JSON.stringify(result)}</p>
+<p>Pages via @core alias: {JSON.stringify(pagesResult)}</p>

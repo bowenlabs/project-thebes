@@ -18,7 +18,8 @@
 		{
 			"binding": "DB",
 			"database_name": "krypto-db",
-			"database_id": "b6255768-4511-4b62-8801-31090e74ae6f"
+			"database_id": "b6255768-4511-4b62-8801-31090e74ae6f",
+			"migrations_dir": "../../core/db/migrations"
 		}
 	],
 	"kv_namespaces": [

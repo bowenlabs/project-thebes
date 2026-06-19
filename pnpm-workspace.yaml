@@ -1,6 +1,7 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+  - 'apps/krypto/workers/*'
   - 'docs'
   - 'examples/*'
 

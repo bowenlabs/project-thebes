@@ -1,6 +1,17 @@
 // Copyright (c) 2026 BowenLabs. All rights reserved.
 // Cadmus is MIT licensed. See LICENSE in the repo root.
 
+// `Error.captureStackTrace` is a real V8 engine feature available in
+// workerd's V8 isolates — it's just not part of any spec, so it isn't in
+// TypeScript's standard lib types without pulling in @types/node, which
+// Cadmus deliberately doesn't (V8-first, no Node assumptions).
+declare global {
+  interface ErrorConstructor {
+    // biome-ignore lint/complexity/noBannedTypes: matches the real V8 signature — this.constructor is typed as Function by TS itself
+    captureStackTrace?(targetObject: object, constructorOpt?: Function): void;
+  }
+}
+
 /**
  * Base class for all Cadmus errors.
  * All primitives throw CadmusError or a typed subclass — never a raw Error.

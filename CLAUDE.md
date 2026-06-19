@@ -1,4 +1,4 @@
-# Salvation — Claude Code Briefing
+# Thebes — Claude Code Briefing
 
 > Read this entire document before writing a single line of code.
 > Every decision here was made deliberately.
@@ -8,9 +8,9 @@
 
 ---
 
-## What is Salvation?
+## What is Thebes?
 
-Salvation is a monorepo containing two open-source projects:
+Thebes is a monorepo containing two open-source projects:
 
 **Cadmus** — a V8-first, Cloudflare-native full-stack framework. Zero Node.js
 assumptions. Cloudflare primitives (D1, KV, R2, Email Workers, Cache API) as
@@ -27,7 +27,7 @@ looks like end-to-end.
 
 **Maintained by:** BowenLabs (one person)
 **License:** MIT
-**Repo:** github.com/bowenlabs/salvation
+**Repo:** github.com/bowenlabs/thebes
 **Framework package:** @bowenlabs/cadmus
 
 ---
@@ -36,7 +36,7 @@ looks like end-to-end.
 
 | Name | What it is |
 |------|-----------|
-| **Salvation** | The monorepo |
+| **Thebes** | The monorepo |
 | **Cadmus** | The framework (`packages/cadmus/`) |
 | **@bowenlabs/cadmus** | The npm package |
 | **Krypto** | The reference app / product (`apps/krypto/`) |
@@ -49,7 +49,7 @@ looks like end-to-end.
 ## Monorepo structure
 
 ```
-salvation/
+thebes/
 ├── packages/
 │   └── cadmus/                  ← @bowenlabs/cadmus framework package
 │       ├── src/
@@ -236,14 +236,13 @@ const settings = await database.select().from(siteSettings)
 
 **In TanStack Start server functions (Worker 2 — Panel):**
 ```typescript
-// apps/krypto/workers/panel/app/server-functions/pages.ts
-import { createServerFn } from '@tanstack/react-start/server'
-import { getCloudflareContext } from '@tanstack/react-start/cloudflare'
+// apps/krypto/workers/panel/src/server-functions/pages.ts
+import { createServerFn } from '@tanstack/react-start'
 import { db } from '@bowenlabs/cadmus/db'
 
 export const getPages = createServerFn({ method: 'GET' })
   .handler(async () => {
-    const { env } = getCloudflareContext()
+    const { env } = await import('cloudflare:workers')
     return db(env.DB).select().from(pages).all()
     // return type flows from Drizzle schema automatically — no manual typing
   })
@@ -251,7 +250,7 @@ export const getPages = createServerFn({ method: 'GET' })
 
 **In Panel components (TanStack Query):**
 ```typescript
-// apps/krypto/workers/panel/app/routes/admin/pages/index.tsx
+// apps/krypto/workers/panel/src/routes/admin/pages/index.tsx
 import { useQuery } from '@tanstack/react-query'
 import { getPages } from '../../../server-functions/pages'
 
@@ -273,7 +272,7 @@ api.post('/api/form/:slug', async (c) => {
 })
 ```
 
-Never call `getCloudflareContext()` in client-side component code.
+Never import `cloudflare:workers` in client-side component code.
 Never pass `env` through props or component trees.
 All binding access happens in server functions or Hono route handlers.
 
@@ -627,5 +626,5 @@ If yes to any: flag it before proceeding.
 
 ---
 
-*Salvation — Open source. Always free. Built with care.*
+*Thebes — Open source. Always free. Built with care.*
 *A BowenLabs project.*

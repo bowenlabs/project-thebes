@@ -3,7 +3,7 @@
 V8-first, Cloudflare-native full-stack framework primitives.
 
 > **0.x — active development.** APIs will change. Not production-ready.
-> Star [bowenlabs/salvation](https://github.com/bowenlabs/salvation) to follow along.
+> Star [bowenlabs/thebes](https://github.com/bowenlabs/thebes) to follow along.
 
 ---
 

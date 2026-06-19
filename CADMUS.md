@@ -1,7 +1,7 @@
 # Cadmus — Framework Briefing
 
 > This document covers the Cadmus framework layer specifically.
-> Read CLAUDE.md first for the full Salvation monorepo context.
+> Read CLAUDE.md first for the full Thebes monorepo context.
 > Read this before touching anything in packages/cadmus/.
 
 ---

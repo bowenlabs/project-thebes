@@ -1,4 +1,4 @@
-# Contributing to Salvation
+# Contributing to Thebes
 
 Thank you for your interest in contributing. Both Cadmus and Krypto
 welcome contributions — please read this before opening a PR.
@@ -36,8 +36,8 @@ wrangler login
 ### Install
 
 ```bash
-git clone https://github.com/bowenlabs/salvation
-cd salvation
+git clone https://github.com/bowenlabs/thebes
+cd thebes
 pnpm install
 ```
 

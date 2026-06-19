@@ -1,5 +1,5 @@
 {
-  "name": "salvation",
+  "name": "thebes",
   "private": true,
   "version": "0.1.0",
   "description": "Cadmus framework + Krypto reference app",
@@ -9,8 +9,8 @@
     "pnpm": ">=11.8.0"
   },
   "scripts": {
-    "dev:site": "cd apps/krypto/workers/site && wrangler dev --port 3000",
-    "dev:panel": "cd apps/krypto/workers/panel && wrangler dev --port 3001",
+    "dev:site": "cd apps/krypto/workers/site && wrangler dev --port 3000 --persist-to ../../../../.wrangler/state",
+    "dev:panel": "cd apps/krypto/workers/panel && wrangler dev --port 3001 --persist-to ../../../../.wrangler/state",
     "dev": "concurrently \"pnpm dev:site\" \"pnpm dev:panel\"",
     "build:cadmus": "cd packages/cadmus && pnpm build",
     "build:site": "cd apps/krypto/workers/site && astro build",
@@ -20,8 +20,8 @@
     "deploy:panel": "cd apps/krypto/workers/panel && wrangler deploy",
     "deploy": "pnpm build && pnpm deploy:site && pnpm deploy:panel",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "wrangler d1 migrations apply krypto-db --local",
-    "db:migrate:prod": "wrangler d1 migrations apply krypto-db --remote",
+    "db:migrate": "wrangler d1 migrations apply krypto-db --local --config apps/krypto/workers/site/wrangler.jsonc --persist-to ./.wrangler/state",
+    "db:migrate:prod": "wrangler d1 migrations apply krypto-db --remote --config apps/krypto/workers/site/wrangler.jsonc",
     "db:studio": "drizzle-kit studio",
     "seed": "tsx apps/krypto/seed.ts",
     "lint": "biome check .",
@@ -39,5 +39,8 @@
     "tsx": "latest",
     "vitest": "latest",
     "wrangler": "latest"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2"
   }
 }

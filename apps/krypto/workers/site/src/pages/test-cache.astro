@@ -1,0 +1,10 @@
+---
+import { env } from "cloudflare:workers";
+
+Astro.response.headers.set("Cache-Control", "public, max-age=60");
+const result = await env.DB.prepare(
+  "SELECT 1 as ok, datetime('now') as fetched_at",
+).first<{ ok: number; fetched_at: string }>();
+---
+
+<p>Fetched at: {result?.fetched_at}</p>
