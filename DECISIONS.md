@@ -9,6 +9,78 @@
 
 ---
 
+## 2026-06-20 — Citadel relicensed to MIT, dropping the revenue-threshold dual license
+
+**Decision:** Replace the source-available dual license (free under $1M
+annual revenue, commercial license required above that threshold,
+permanent nonprofit exemption) with a plain MIT license across the whole
+repo — Citadel now matches Cadmus, which was already MIT.
+
+**Rationale:** The revenue threshold and commercial-license requirement
+were built around Citadel as a monetizable SMB product. Now that Citadel
+is repositioned as a generic, V8-native, Payload-equivalent CMS (see the
+entry immediately below) intended as an open proof of concept to show the
+Payload team, a usage-gated license works against the goal — it adds
+friction for exactly the kind of broad, no-strings adoption and external
+scrutiny the POC needs to be credible. MIT removes that friction and
+matches Cadmus's existing license, so the whole monorepo is now licensed
+consistently.
+
+**What changes:** root `LICENSE` replaced with the standard MIT text
+(same copyright holder, BowenLabs). `apps/citadel/README.md`'s licensing
+section simplified accordingly — the revenue-threshold language and
+licensing@bowenlabs.io contact info are removed, not just reworded.
+
+**Revisit if:** Citadel later needs a sustainable-funding mechanism again
+— if so, treat it as a new decision rather than reinstating this one,
+since the context (a Payload-facing POC) will likely have changed by then.
+
+---
+
+## 2026-06-20 — Citadel repositioned as a V8-native, Payload-equivalent CMS; supersedes 2026-06-17 "no CMS"
+
+**Decision:** Citadel's product identity changes from "SMB website/CRM
+platform" to "a free, open-source, V8-native headless CMS and admin
+platform" — a from-scratch, Cloudflare-native equivalent of Payload's
+collection/field/admin-generation engine. A new Cadmus primitive,
+`@bowenlabs/cadmus/cms`, provides collection/field config, schema codegen,
+a Local API, and admin-UI introspection metadata. Citadel's admin Worker
+is renamed from "Panel" to "CMS" (`apps/citadel/workers/panel/` →
+`apps/citadel/workers/cms/`) to match Payload's own vocabulary, since this
+is explicitly intended as a proof of concept to show the Payload team what
+a Node-free, edge-native version of their product could look like —
+directly inspired by the architecture of
+[jherr/tanstack-payload](https://github.com/jherr/tanstack-payload).
+
+**This explicitly supersedes the 2026-06-17 "CMS and data layer" entry
+below**, which stated "Revisit if: Never." That entry is left unedited —
+it was correct about what it rejected. It rejected running *actual Payload*
+as a dependency (Node-based, admin UI disabled, version-pinning anxiety).
+It did not anticipate building an equivalent primitive natively, with no
+Node dependency, where the admin UI is the entire point rather than a
+disabled liability. The "never" was about a specific integration path, not
+about the outcome Payload provides.
+
+**What does not change:** the two-Worker VMFE architecture, magic-link
+auth, KV sessions, cross-Worker login redirect, cache purge — all of Phase
+0's verified production behavior is preserved untouched. Drizzle + D1
+remain the underlying data layer; `cadmus/cms` generates Drizzle schema
+from collection config rather than replacing Drizzle.
+
+**Former SMB-specific concepts** (forms, CRM/contacts, site_settings
+beyond the singleton infra fields, SMB block types) are not deleted — they
+move to `examples/citadel-smb-template/` as a worked example of a site
+built on Citadel, rather than being part of Citadel core. The `pages`
+collection (Phase 0's only real table) becomes the one example collection
+Citadel core ships, proving the generated-schema path against
+already-live production data.
+
+**Revisit if:** the `cadmus/cms` primitive proves too heavy to maintain
+solo, or the Payload-equivalence framing turns out not to matter for the
+POC's purpose.
+
+---
+
 ## 2026-06-19 — First production deploy; POC 4 verified post-deploy
 
 **Decision:** Both Workers deployed for the first time, completing the

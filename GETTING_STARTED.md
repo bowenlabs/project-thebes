@@ -66,7 +66,7 @@ Cloudflare Account
 │   └── Serves: /, /[slug], /about, /contact, /coming-soon
 │
 └── Worker 2: TanStack Start Panel ←─────────────┘
-    apps/citadel/workers/panel/
+    apps/citadel/workers/cms/
     ├── Custom server entrypoint (app/server.ts)
     │   └── Hono — /api/form/:slug, /api/auth/*, /api/media/upload
     ├── TanStack Start — all /admin/* routes
@@ -404,8 +404,8 @@ with its real non-interactive flags instead:
 
 ```bash
 cd ../..   # back to repo root
-mkdir -p apps/citadel/workers/panel
-cd apps/citadel/workers/panel
+mkdir -p apps/citadel/workers/cms
+cd apps/citadel/workers/cms
 pnpm dlx @tanstack/cli@0.69.3 create panel \
   --framework solid \
   --deployment cloudflare \
@@ -417,7 +417,7 @@ pnpm dlx @tanstack/cli@0.69.3 create panel \
 
 **Two more things to do immediately after scaffolding:**
 
-1. `apps/citadel/workers/panel` sits **three** levels under `apps/`, but the
+1. `apps/citadel/workers/cms` sits **three** levels under `apps/`, but the
    root `pnpm-workspace.yaml`'s `apps/*` glob only matches one level deep —
    `panel` is silently invisible to the workspace until you fix this.
    Add an explicit deeper pattern:
@@ -453,10 +453,10 @@ no custom routes, but once you add the Hono entrypoint in Step 17, `main`
 must point at that file instead:
 
 ```jsonc
-// apps/citadel/workers/panel/wrangler.jsonc
+// apps/citadel/workers/cms/wrangler.jsonc
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "citadel-panel",
+  "name": "citadel-cms",
   "main": "./app/server.ts",
   "compatibility_date": "2026-06-17",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -505,7 +505,7 @@ Add the plugin line to the **existing** `src/styles.css` (don't create a
 new file — the scaffold already imports this one from `src/routes/__root.tsx`):
 
 ```css
-/* apps/citadel/workers/panel/src/styles.css */
+/* apps/citadel/workers/cms/src/styles.css */
 @import "tailwindcss";
 @plugin "daisyui";
 ```
@@ -560,7 +560,7 @@ pnpm wrangler types    # generates worker-configuration.d.ts
 ### Step 14 — Local secrets
 
 ```bash
-# apps/citadel/workers/panel/.dev.vars — never commit
+# apps/citadel/workers/cms/.dev.vars — never commit
 SESSION_SECRET=dev-secret-change-in-production
 OWNER_EMAIL=you@yourdomain.com
 MEDIA_URL=http://localhost:3001/media
@@ -580,7 +580,7 @@ that directory doesn't exist here. `app/` is reserved for the custom Hono
 entrypoint added in Step 17.
 
 ```typescript
-// apps/citadel/workers/panel/src/routes/test.tsx
+// apps/citadel/workers/cms/src/routes/test.tsx
 import { createFileRoute } from '@tanstack/solid-router'
 import { createServerFn } from '@tanstack/solid-start'
 
@@ -603,7 +603,7 @@ function Test() {
 
 ```bash
 pnpm run generate-routes   # regenerates src/routeTree.gen.ts for the new route
-cd apps/citadel/workers/panel && pnpm dev    # starts on :3000, per package.json
+cd apps/citadel/workers/cms && pnpm dev    # starts on :3000, per package.json
 ```
 
 Visit `http://localhost:3000/test` — result populated = **POC 1b complete**.
@@ -620,7 +620,7 @@ during Phase 0 (2026-06-19), see [DECISIONS.md](./DECISIONS.md) for the
 exact `Cannot find module` error this produces if you use the wrong one:
 
 ```typescript
-// apps/citadel/workers/panel/src/server-functions/pages.ts
+// apps/citadel/workers/cms/src/server-functions/pages.ts
 import { createServerFn } from '@tanstack/solid-start'
 import { db } from '@core/lib/db'
 import { pages } from '@core/db/schema'
@@ -637,7 +637,7 @@ export const getPages = createServerFn({ method: 'GET' })
 Use with @tanstack/solid-query in a Panel route:
 
 ```typescript
-// apps/citadel/workers/panel/src/routes/admin/pages/index.tsx
+// apps/citadel/workers/cms/src/routes/admin/pages/index.tsx
 import { createFileRoute } from '@tanstack/solid-router'
 import { createQuery } from '@tanstack/solid-query'
 import { Show } from 'solid-js'
@@ -677,10 +677,10 @@ own type: `(request: Request, opts?: RequestOptions) => Promise<Response>`.
 Don't pass `env`/`ctx` through — TanStack Start reads bindings via
 `cloudflare:workers` inside server functions instead, same as Step 15.
 
-Create `apps/citadel/workers/panel/app/server.ts`:
+Create `apps/citadel/workers/cms/app/server.ts`:
 
 ```typescript
-// apps/citadel/workers/panel/app/server.ts
+// apps/citadel/workers/cms/app/server.ts
 import { Hono } from 'hono'
 import startHandler from '@tanstack/solid-start/server-entry'
 
@@ -730,7 +730,7 @@ You'll also need `hono` installed in `panel/` — it isn't a dependency of
 the vanilla scaffold:
 
 ```bash
-cd apps/citadel/workers/panel && pnpm add hono
+cd apps/citadel/workers/cms && pnpm add hono
 ```
 
 `wrangler.jsonc` already points at `./app/server.ts` from Step 11.
@@ -755,7 +755,7 @@ Public Hono route reachable = **Hono public API confirmed**.
 Confirm Web Crypto works in the Worker runtime (critical — no Node.js crypto):
 
 ```typescript
-// add to apps/citadel/workers/panel/app/server.ts temporarily
+// add to apps/citadel/workers/cms/app/server.ts temporarily
 app.get('/api/crypto-test', async (c) => {
   const bytes = crypto.getRandomValues(new Uint8Array(32))
   const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
@@ -790,7 +790,7 @@ SPA navigation; wrapping it in a server function guarantees it always
 executes server-side via RPC regardless of where `beforeLoad` runs:
 
 ```typescript
-// apps/citadel/workers/panel/app/middleware.ts
+// apps/citadel/workers/cms/app/middleware.ts
 import { createServerFn } from '@tanstack/solid-start'
 import { getCookie } from '@tanstack/solid-start/server'
 
@@ -826,7 +826,7 @@ export const requireAuth = createServerFn({ method: 'GET' }).handler(async () =>
 Guard `/admin/*` with a layout route at `src/routes/admin/route.tsx`:
 
 ```typescript
-// apps/citadel/workers/panel/src/routes/admin/route.tsx
+// apps/citadel/workers/cms/src/routes/admin/route.tsx
 import { createFileRoute, Outlet, redirect } from '@tanstack/solid-router'
 import { requireAuth } from '../../../app/middleware'
 
@@ -866,7 +866,7 @@ workspace package — when Vite resolves a bare import like `drizzle-orm/d1`
 from a file there, it walks up the directory tree looking for
 `node_modules`, and lands on the **root** `node_modules`, not either
 Worker's. Installing `drizzle-orm` only inside `workers/site/` or
-`workers/panel/` produces `Rollup failed to resolve import "drizzle-orm/d1"`
+`workers/cms/` produces `Rollup failed to resolve import "drizzle-orm/d1"`
 at build time even though the package is clearly installed (just not
 where resolution actually looks for it). Full repro in
 [DECISIONS.md](./DECISIONS.md).
@@ -957,7 +957,7 @@ Drizzle's actual output location:
 
 **Confirmed during Phase 0 (2026-06-19): `wrangler dev`'s local D1
 persistence is scoped to its own working directory by default.** Running
-`dev:site` and `dev:panel` from their own folders gives each one a
+`dev:site` and `dev:cms` from their own folders gives each one a
 *separate* local D1 emulation — sharing the same `database_id` in
 `wrangler.jsonc` does **not** make them share local data. They only share
 data with an explicit, identical `--persist-to` path. Update the root
@@ -965,7 +965,7 @@ data with an explicit, identical `--persist-to` path. Update the root
 
 ```json
 "dev:site":  "cd apps/citadel/workers/site && wrangler dev --port 3000 --persist-to ../../../../.wrangler/state",
-"dev:panel": "cd apps/citadel/workers/panel && wrangler dev --port 3001 --persist-to ../../../../.wrangler/state",
+"dev:cms": "cd apps/citadel/workers/cms && wrangler dev --port 3001 --persist-to ../../../../.wrangler/state",
 "db:migrate": "wrangler d1 migrations apply citadel-db --local --config apps/citadel/workers/site/wrangler.jsonc --persist-to ./.wrangler/state",
 "db:migrate:prod": "wrangler d1 migrations apply citadel-db --remote --config apps/citadel/workers/site/wrangler.jsonc"
 ```
@@ -1054,14 +1054,14 @@ pnpm add -D concurrently
 {
   "scripts": {
     "dev:site":       "cd apps/citadel/workers/site && wrangler dev --port 3000",
-    "dev:panel":      "cd apps/citadel/workers/panel && wrangler dev --port 3001",
-    "dev":            "concurrently \"pnpm dev:site\" \"pnpm dev:panel\"",
+    "dev:cms":      "cd apps/citadel/workers/cms && wrangler dev --port 3001",
+    "dev":            "concurrently \"pnpm dev:site\" \"pnpm dev:cms\"",
     "build:site":     "cd apps/citadel/workers/site && astro build",
-    "build:panel":    "cd apps/citadel/workers/panel && vite build",
-    "build":          "pnpm build:site && pnpm build:panel",
+    "build:cms":    "cd apps/citadel/workers/cms && vite build",
+    "build":          "pnpm build:site && pnpm build:cms",
     "deploy:site":    "cd apps/citadel/workers/site && wrangler deploy",
-    "deploy:panel":   "cd apps/citadel/workers/panel && wrangler deploy",
-    "deploy":         "pnpm build && pnpm deploy:site && pnpm deploy:panel",
+    "deploy:cms":   "cd apps/citadel/workers/cms && wrangler deploy",
+    "deploy":         "pnpm build && pnpm deploy:site && pnpm deploy:cms",
     "db:generate":    "drizzle-kit generate",
     "db:migrate":     "wrangler d1 migrations apply citadel-db --local",
     "db:migrate:prod":"wrangler d1 migrations apply citadel-db --remote",
@@ -1070,7 +1070,7 @@ pnpm add -D concurrently
 }
 ```
 
-`pnpm dev` starts both Workers. `pnpm dev:site` and `pnpm dev:panel` work
+`pnpm dev` starts both Workers. `pnpm dev:site` and `pnpm dev:cms` work
 independently. Never run `wrangler dev` directly inside a Worker directory
 as your primary workflow — always use root scripts.
 
@@ -1176,7 +1176,7 @@ citadel/
 **Shared:**
 - [ ] **Same D1** — Both Workers read/write the same rows (same `database_id`)
 - [ ] **Shared schema** — `apps/citadel/core/db/schema.ts` imports without errors in both Workers
-- [ ] **Dev commands** — `pnpm dev:site` and `pnpm dev:panel` work independently
+- [ ] **Dev commands** — `pnpm dev:site` and `pnpm dev:cms` work independently
 - [ ] **Dev commands** — `pnpm dev` starts both Workers from repo root
 
 ---
@@ -1237,7 +1237,7 @@ configuration file found" or "No migrations present," `db:migrate` needs
 relative to the Worker's own folder.
 
 If migrations applied cleanly but you still get this error from one Worker
-and not the other: `dev:site`/`dev:panel` (and `db:migrate`) all need the
+and not the other: `dev:site`/`dev:cms` (and `db:migrate`) all need the
 **same** `--persist-to` path. Sharing a `database_id` in `wrangler.jsonc`
 does not make two `wrangler dev` instances share local D1 data — each
 defaults to its own working directory's local state unless told otherwise.

@@ -1,10 +1,37 @@
 # Project Thebes
 
 **Cadmus** — a V8-first, Cloudflare-native full-stack framework.
-**Citadel** — a free, open-source web platform built on Cadmus.
+**Citadel** — a free, open-source, V8-native headless CMS built on Cadmus.
 
 > Both projects are under active development. APIs will change.
 > Star the repo to follow along.
+
+<details>
+<summary><strong>Why "Thebes"?</strong> (the short mythological version)</summary>
+
+<br>
+
+In the myth, Cadmus went looking for the Ismenian spring and found it
+guarded by a dragon. He killed it, sowed its teeth into the ground, and
+the warriors who sprang up helped him build a fortified citadel — the
+Cadmea. The city that grew up around it was Thebes. Cadmus is also
+credited with bringing the alphabet to Greece: less a monster-slayer,
+more the original protocol designer.
+
+The names borrow that shape, not the body count:
+
+- **V8** is the spring — the raw, fast thing everyone actually wants.
+- **Cadmus** is the framework that talks to it directly, in its native
+  language, without a heavier runtime standing in the way.
+- **Citadel** is the fortified thing built from what's left over once
+  you don't need that runtime — a CMS admin hardened the way a citadel
+  is, not a website with a dashboard bolted on.
+- **Thebes** is the whole city: the monorepo everything lives in.
+
+No dragons were harmed. Node.js remains an excellent choice for almost
+everything that isn't this.
+
+</details>
 
 ---
 
@@ -48,15 +75,17 @@ import { enqueue }     from '@bowenlabs/cadmus/queues'
 
 ## Citadel
 
-A free, open-source web platform for small businesses, creatives, and
-nonprofits. Built on Cadmus. One deploy gives operators a complete
-digital presence — website, admin panel, forms, CRM, and notifications
-— on infrastructure they own forever.
+A free, open-source, V8-native headless CMS and admin platform. Built on
+Cadmus. Define content as collections in `citadel.config.ts` (the
+equivalent of a `payload.config.ts`) and get a generated admin UI, a
+typed query layer, and a REST API — on infrastructure you own forever.
+It's also a deliberate proof of concept for what a Payload-CMS-equivalent
+product looks like with zero Node.js dependency, running natively in
+Cloudflare's V8 isolates.
 
-- **Free** for individuals and organisations under $1M annual revenue
-- **Free forever** for verified nonprofits
+- **MIT licensed** — no revenue thresholds, no commercial license required
 - **Operator-owned** — your Cloudflare account, your data, your domain
-- **Mobile-first** — the Panel is designed for phones and tablets first
+- **Mobile-first** — the CMS admin is designed for phones and tablets first
 
 **[Read the Citadel docs →](./apps/citadel/README.md)**
 
@@ -87,10 +116,9 @@ Stability guarantees begin at `1.0.0`.
 
 ## Contributing
 
-Cadmus is MIT licensed. Contributions welcome — read
-[CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
-
-Citadel uses a dual license. See [apps/citadel/LICENSE](./apps/citadel/LICENSE).
+Both Cadmus and Citadel are MIT licensed. Contributions welcome — read
+[CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR. See
+[LICENSE](./LICENSE) for full terms.
 
 All contributors and operators are expected to follow the
 [Code of Conduct & Acceptable Use](./CODE_OF_CONDUCT.md) — all

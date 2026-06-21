@@ -71,6 +71,22 @@ never import from `cadmus/db`. `cadmus/session` must never import from
 `cadmus/rate-limit`. If you find yourself importing one Cadmus primitive
 from another, stop — the design is wrong.
 
+**One sanctioned, narrow exception:** `cadmus/cms` needs somewhere to
+persist collections, so it depends on the *shape* of a Drizzle instance —
+the type returned by `cadmus/db`'s `db()` factory — without importing
+`cadmus/db` itself. A consumer wires the two together explicitly:
+
+```typescript
+import { db } from '@bowenlabs/cadmus/db'
+import { defineCmsConfig } from '@bowenlabs/cadmus/cms'
+
+defineCmsConfig({ collections, db: db(d1, schema) })
+```
+
+This is the same treatment Hono already gets ("a peer, not a dependency,"
+see below) — `cms` is typed against a shape, never has a hard import of
+another primitive's module.
+
 Each primitive accepts raw Cloudflare binding types directly. This is
 intentional. It keeps Cadmus framework-agnostic and makes every call
 site explicit:
@@ -140,6 +156,14 @@ packages/cadmus/
 │   │   ├── index.ts         ← db(d1, schema) helper
 │   │   └── README.md
 │   │
+│   ├── cms/
+│   │   ├── index.ts         ← defineCollection / defineCmsConfig
+│   │   ├── fields.ts        ← field-type definitions (text, richText, relationship, upload, etc.)
+│   │   ├── schema-gen.ts    ← collection config → generated Drizzle schema
+│   │   ├── query.ts         ← Local API (find / findByID / create / update / delete)
+│   │   ├── meta.ts          ← getCollectionsMeta() admin-UI introspection contract
+│   │   └── README.md
+│   │
 │   ├── storage/
 │   │   ├── index.ts         ← ImageService interface, R2 upload/serve helper
 │   │   └── README.md
@@ -203,6 +227,10 @@ both the compiled output and TypeScript types:
     "./db": {
       "types":   "./dist/db/index.d.ts",
       "default": "./dist/db/index.js"
+    },
+    "./cms": {
+      "types":   "./dist/cms/index.d.ts",
+      "default": "./dist/cms/index.js"
     },
     "./storage": {
       "types":   "./dist/storage/index.d.ts",
@@ -320,6 +348,13 @@ export class CadmusDbError extends CadmusError {
   constructor(message: string, cause?: unknown) {
     super(message, 'DB_ERROR', cause)
     this.name = 'CadmusDbError'
+  }
+}
+
+export class CadmusCmsError extends CadmusError {
+  constructor(message: string, cause?: unknown) {
+    super(message, 'CMS_ERROR', cause)
+    this.name = 'CadmusCmsError'
   }
 }
 
@@ -633,6 +668,12 @@ framework to move it to ✅.
 - **Not a meta-framework.** Cadmus doesn't generate routes, manage layouts,
   or own your build pipeline. Astro and TanStack Start do that.
 - **Not an ORM.** Cadmus wraps Drizzle's D1 adapter. Drizzle is the ORM.
+  `cadmus/cms` generates Drizzle schema from collection config — it doesn't
+  replace Drizzle, and it has no query language of its own beyond the
+  Local API's typed CRUD surface.
+- **Not a hosted CMS.** `cadmus/cms` ships no SaaS, no managed admin, no
+  account system. It's a primitive an operator self-hosts entirely, same
+  as every other Cadmus primitive.
 - **Not a UI library.** No components. No design system. That's Citadel's job.
 - **Not a hosting platform.** Cloudflare is the platform. Cadmus is the
   framework layer that makes Cloudflare feel complete.

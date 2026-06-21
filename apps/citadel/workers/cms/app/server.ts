@@ -1,4 +1,4 @@
-// apps/citadel/workers/panel/app/server.ts
+// apps/citadel/workers/cms/app/server.ts
 
 import startHandler from "@tanstack/solid-start/server-entry";
 import { Hono } from "hono";
@@ -10,7 +10,7 @@ app.get("/api/ping", async (c) => {
   const result = await c.env.DB.prepare("SELECT 1 as ok").first();
   await c.env.KV.put("ping", "pong");
   const kv = await c.env.KV.get("ping");
-  return c.json({ db: result, kv, worker: "panel" });
+  return c.json({ db: result, kv, worker: "cms" });
 });
 
 // Public form submission — unauthenticated

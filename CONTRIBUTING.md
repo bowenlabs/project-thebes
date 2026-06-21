@@ -56,14 +56,14 @@ pnpm seed
 # Start development
 pnpm dev          # both Workers
 pnpm dev:site     # Worker 1 only (:3000)
-pnpm dev:panel    # Worker 2 only (:3001)
+pnpm dev:cms    # Worker 2 only (:3001)
 ```
 
 ### Local secrets
 
 ```bash
 # apps/citadel/workers/site/.dev.vars
-# apps/citadel/workers/panel/.dev.vars
+# apps/citadel/workers/cms/.dev.vars
 SESSION_SECRET=dev-secret-change-in-production
 OWNER_EMAIL=you@yourdomain.com
 MEDIA_URL=http://localhost:3001/media
