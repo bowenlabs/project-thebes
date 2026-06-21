@@ -23,7 +23,7 @@ jobs:
 
       - name: Add upstream remote
         run: |
-          git remote add upstream https://github.com/bowenlabs/thebes.git || true
+          git remote add upstream https://github.com/bowenlabs/project-thebes.git || true
           git fetch upstream main
 
       - name: Attempt merge
@@ -47,7 +47,7 @@ jobs:
               body: [
                 '## Upstream merge conflict',
                 '',
-                'The weekly merge from `bowenlabs/thebes:main` produced conflicts.',
+                'The weekly merge from `bowenlabs/project-thebes:main` produced conflicts.',
                 'Please resolve manually:',
                 '',
                 '```bash',

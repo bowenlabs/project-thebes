@@ -30,7 +30,7 @@ isolates.
 
 **Maintained by:** BowenLabs (one person)
 **License:** MIT
-**Repo:** github.com/bowenlabs/thebes
+**Repo:** github.com/bowenlabs/project-thebes
 **Framework package:** @bowenlabs/cadmus
 
 **Why the names (for context, not load-bearing):** in the myth, Cadmus

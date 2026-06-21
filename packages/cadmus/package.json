@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bowenlabs/thebes",
+    "url": "https://github.com/bowenlabs/project-thebes",
     "directory": "packages/cadmus"
   },
   "keywords": [

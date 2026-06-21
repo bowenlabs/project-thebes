@@ -36,7 +36,7 @@ wrangler login
 ### Install
 
 ```bash
-git clone https://github.com/bowenlabs/thebes
+git clone https://github.com/bowenlabs/project-thebes
 cd thebes
 pnpm install
 ```

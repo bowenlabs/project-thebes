@@ -1316,7 +1316,7 @@ thebes/
 └── .github/
     └── workflows/
         ├── ci.yml                     ← lint + build on every push/PR
-        └── update.yml                 ← weekly upstream merge from bowenlabs/thebes
+        └── update.yml                 ← weekly upstream merge from bowenlabs/project-thebes
 ```
 
 ### The `citadel.config.ts` contract
@@ -1372,7 +1372,7 @@ export default config
 - Citadel-specific components, utilities, schema
 - Imports from `@bowenlabs/cadmus` — never from `apps/citadel/custom/`
 - Updated via upstream merge — operators never edit these files
-- PRs to `bowenlabs/thebes` that touch Citadel touch only `apps/citadel/core/`
+- PRs to `bowenlabs/project-thebes` that touch Citadel touch only `apps/citadel/core/`
 
 **Citadel custom (`apps/citadel/custom/`):**
 - Operator territory — Citadel never overwrites these files
@@ -1398,7 +1398,7 @@ export default config
 ### How Citadel updates flow to operator instances
 
 ```
-BowenLabs pushes to bowenlabs/thebes:main
+BowenLabs pushes to bowenlabs/project-thebes:main
           │
           ▼
 .github/workflows/update.yml runs weekly (Monday 09:00 UTC)
@@ -1656,7 +1656,7 @@ That all comes in Phase 2+.
   - Must pass before any deploy
 - [ ] **1.37** Create `.github/workflows/update.yml`:
   - Trigger: schedule (weekly, Monday 09:00 UTC)
-  - Steps: fetch `bowenlabs/thebes:main` → merge → run CI → push if clean → open GitHub issue if conflicts
+  - Steps: fetch `bowenlabs/project-thebes:main` → merge → run CI → push if clean → open GitHub issue if conflicts
   - Never auto-deploys on conflict — operator resolves manually
 - [ ] **1.38** Create `CONTRIBUTING.md` noting: local dev requires both Workers running (`pnpm dev`), cookie auth must be tested on a custom domain not `workers.dev` (G6), `apps/citadel/core/` is never edited directly
 
