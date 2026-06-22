@@ -1,12 +1,16 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// TanStack Start can prerender a route at build time. `loader`/`beforeLoad`
-// callbacks that call a server function (auth checks, D1 reads, etc.) need
+// TanStack Start can prerender a route at build time. A route that calls a
+// server function — whether from `loader`/`beforeLoad`, or from a
+// `createQuery`/`createMutation` in the component body — needs
 // request-time bindings (`cloudflare:workers` env) that don't exist at
-// build time — so any route using one in `loader`/`beforeLoad` must opt
-// out with `export const prerender = false`. See CLAUDE.md and
-// SECTION_1_PLAN.md milestone 1.18.
+// build time, and prerendering a route also means no client JS ships for
+// it, so the component never hydrates. Any route importing a server
+// function anywhere in the file must opt out with
+// `export const prerender = false`. See CLAUDE.md, SECTION_1_PLAN.md
+// milestone 1.18, and issue #19 (the component-body-call case wasn't
+// originally covered here and shipped a real hydration bug as a result).
 const routesDir = fileURLToPath(
   new URL("../workers/cadmea/src/routes", import.meta.url),
 );
@@ -30,9 +34,6 @@ for (const file of files) {
   const path = `${routesDir}/${file}`;
   const source = readFileSync(path, "utf-8");
 
-  const usesLoaderOrBeforeLoad = /\b(loader|beforeLoad)\s*:/.test(source);
-  if (!usesLoaderOrBeforeLoad) continue;
-
   const callsServerFunction =
     /from\s+["'].*\/server-functions\//.test(source) ||
     /from\s+["'].*\/middleware["']/.test(source) ||
@@ -49,8 +50,8 @@ for (const file of files) {
 
 if (offenders.length > 0) {
   console.error(
-    "The following routes call a server function from `loader`/`beforeLoad` " +
-      "but don't export `prerender = false`:\n",
+    "The following routes call a server function but don't export " +
+      "`prerender = false`:\n",
   );
   for (const file of offenders) {
     console.error(`  - workers/cadmea/src/routes/${file}`);

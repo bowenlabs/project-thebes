@@ -4,8 +4,8 @@
     {
       "name": "cadmea",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "cadmea", "dev"],
-      "port": 3000
+      "runtimeArgs": ["--filter", "cadmea", "dev", "--", "--port", "3001"],
+      "port": 3001
     },
     {
       "name": "site",

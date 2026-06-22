@@ -4,6 +4,9 @@ import { pagesCollection } from "../../../../../../cadmea.config.js";
 import { uploadMediaFile } from "../../../lib/upload-media";
 import { createPage } from "../../../server-functions/pages";
 
+// See admin/pages/index.tsx's comment — same prerender hazard, same fix.
+export const prerender = false;
+
 export const Route = createFileRoute("/admin/pages/new")({
   component: NewPagePage,
 });
