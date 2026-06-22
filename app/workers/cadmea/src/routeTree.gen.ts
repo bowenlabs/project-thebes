@@ -13,6 +13,10 @@ import { Route as TestRouteImport } from './routes/test'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminExtensionsRouteImport } from './routes/admin/extensions'
+import { Route as AdminDesignRouteImport } from './routes/admin/design'
 import { Route as AdminPagesIndexRouteImport } from './routes/admin/pages/index'
 import { Route as AdminPagesNewRouteImport } from './routes/admin/pages/new'
 import { Route as AdminPagesPageIdRouteImport } from './routes/admin/pages/$pageId'
@@ -37,6 +41,26 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminExtensionsRoute = AdminExtensionsRouteImport.update({
+  id: '/extensions',
+  path: '/extensions',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminDesignRoute = AdminDesignRouteImport.update({
+  id: '/design',
+  path: '/design',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminPagesIndexRoute = AdminPagesIndexRouteImport.update({
   id: '/pages/',
   path: '/pages/',
@@ -58,15 +82,22 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/test': typeof TestRoute
+  '/admin/design': typeof AdminDesignRoute
+  '/admin/extensions': typeof AdminExtensionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/': typeof AdminIndexRoute
   '/admin/pages/$pageId': typeof AdminPagesPageIdRoute
   '/admin/pages/new': typeof AdminPagesNewRoute
   '/admin/pages/': typeof AdminPagesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/test': typeof TestRoute
+  '/admin/design': typeof AdminDesignRoute
+  '/admin/extensions': typeof AdminExtensionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin': typeof AdminIndexRoute
   '/admin/pages/$pageId': typeof AdminPagesPageIdRoute
   '/admin/pages/new': typeof AdminPagesNewRoute
   '/admin/pages': typeof AdminPagesIndexRoute
@@ -77,6 +108,10 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/test': typeof TestRoute
+  '/admin/design': typeof AdminDesignRoute
+  '/admin/extensions': typeof AdminExtensionsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/': typeof AdminIndexRoute
   '/admin/pages/$pageId': typeof AdminPagesPageIdRoute
   '/admin/pages/new': typeof AdminPagesNewRoute
   '/admin/pages/': typeof AdminPagesIndexRoute
@@ -88,15 +123,22 @@ export interface FileRouteTypes {
     | '/admin'
     | '/about'
     | '/test'
+    | '/admin/design'
+    | '/admin/extensions'
+    | '/admin/settings'
+    | '/admin/'
     | '/admin/pages/$pageId'
     | '/admin/pages/new'
     | '/admin/pages/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/about'
     | '/test'
+    | '/admin/design'
+    | '/admin/extensions'
+    | '/admin/settings'
+    | '/admin'
     | '/admin/pages/$pageId'
     | '/admin/pages/new'
     | '/admin/pages'
@@ -106,6 +148,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/about'
     | '/test'
+    | '/admin/design'
+    | '/admin/extensions'
+    | '/admin/settings'
+    | '/admin/'
     | '/admin/pages/$pageId'
     | '/admin/pages/new'
     | '/admin/pages/'
@@ -148,6 +194,34 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/extensions': {
+      id: '/admin/extensions'
+      path: '/extensions'
+      fullPath: '/admin/extensions'
+      preLoaderRoute: typeof AdminExtensionsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/design': {
+      id: '/admin/design'
+      path: '/design'
+      fullPath: '/admin/design'
+      preLoaderRoute: typeof AdminDesignRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/pages/': {
       id: '/admin/pages/'
       path: '/pages'
@@ -173,12 +247,20 @@ declare module '@tanstack/solid-router' {
 }
 
 interface AdminRouteRouteChildren {
+  AdminDesignRoute: typeof AdminDesignRoute
+  AdminExtensionsRoute: typeof AdminExtensionsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   AdminPagesPageIdRoute: typeof AdminPagesPageIdRoute
   AdminPagesNewRoute: typeof AdminPagesNewRoute
   AdminPagesIndexRoute: typeof AdminPagesIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminDesignRoute: AdminDesignRoute,
+  AdminExtensionsRoute: AdminExtensionsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminIndexRoute: AdminIndexRoute,
   AdminPagesPageIdRoute: AdminPagesPageIdRoute,
   AdminPagesNewRoute: AdminPagesNewRoute,
   AdminPagesIndexRoute: AdminPagesIndexRoute,

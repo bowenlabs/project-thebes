@@ -82,3 +82,23 @@ export const getLoginUrl = createServerFn({ method: "GET" })
     url.searchParams.set("redirect", redirectTo);
     return url.toString();
   });
+
+// Logout lives in Worker 1 too (`/api/auth/logout` in
+// app/workers/site/src/app.ts) — same cross-Worker reasoning as
+// getLoginUrl above. Returns an absolute URL for the Panel nav's sign-out
+// form to POST to directly.
+export const getLogoutUrl = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const { env } = await import("cloudflare:workers");
+    return new URL("/api/auth/logout", env.SERVER_URL).toString();
+  },
+);
+
+// Powers the Panel header's "View live site" link — env.SERVER_URL is
+// server-only, same reasoning as getLoginUrl/getLogoutUrl above.
+export const getPublicSiteUrl = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const { env } = await import("cloudflare:workers");
+    return env.SERVER_URL;
+  },
+);

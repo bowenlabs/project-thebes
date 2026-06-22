@@ -6,10 +6,12 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Scripts,
+  useLocation,
 } from "@tanstack/solid-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/solid-router-devtools";
-import type { JSX } from "solid-js";
+import { type JSX, Show } from "solid-js";
 import BrandColorProvider from "../components/BrandColorProvider";
+import { DesignPreviewProvider } from "../components/design-preview-context";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
 import { getCadmeaSiteSettings } from "../server-functions/site-settings";
@@ -60,6 +62,10 @@ export const Route = createRootRouteWithContext<{
 function RootDocument(props: { children: JSX.Element }) {
   const context = Route.useRouteContext();
   const settings = Route.useLoaderData();
+  const location = useLocation();
+  // <PanelShell> (mounted by routes/admin/route.tsx) owns the entire
+  // admin chrome — the public Header/Footer would otherwise wrap it too.
+  const isAdminRoute = () => location().pathname.startsWith("/admin");
 
   return (
     <html lang="en">
@@ -68,22 +74,32 @@ function RootDocument(props: { children: JSX.Element }) {
         <HeadContent />
       </head>
       <body class="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
-        <BrandColorProvider
-          theme={settings()?.theme}
-          brandColor={settings()?.brandColor}
-          secondaryColor={settings()?.secondaryColor}
-          tertiaryColor={settings()?.tertiaryColor}
-          spacingPreset={settings()?.spacingPreset}
-          typeTokens={
-            settings()?.typeTokens as Record<string, string> | null | undefined
-          }
-        >
-          <QueryClientProvider client={context().queryClient}>
-            <Header />
-            {props.children}
-            <Footer />
-          </QueryClientProvider>
-        </BrandColorProvider>
+        <DesignPreviewProvider>
+          <BrandColorProvider
+            theme={settings()?.theme}
+            brandColor={settings()?.brandColor}
+            secondaryColor={settings()?.secondaryColor}
+            tertiaryColor={settings()?.tertiaryColor}
+            spacingPreset={settings()?.spacingPreset}
+            typeTokens={
+              settings()?.typeTokens as
+                | Record<string, string>
+                | null
+                | undefined
+            }
+            fontPairing={settings()?.fontPairing}
+          >
+            <QueryClientProvider client={context().queryClient}>
+              <Show when={!isAdminRoute()}>
+                <Header />
+              </Show>
+              {props.children}
+              <Show when={!isAdminRoute()}>
+                <Footer />
+              </Show>
+            </QueryClientProvider>
+          </BrandColorProvider>
+        </DesignPreviewProvider>
         <TanStackDevtools
           config={{
             position: "bottom-right",

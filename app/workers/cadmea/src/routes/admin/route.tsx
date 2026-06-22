@@ -1,5 +1,12 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/solid-router";
-import { getLoginUrl, requireAuth } from "../../../app/middleware";
+import {
+  getLoginUrl,
+  getLogoutUrl,
+  getPublicSiteUrl,
+  requireAuth,
+} from "../../../app/middleware";
+import PanelShell from "../../components/PanelShell";
+import { getCadmeaSiteSettings } from "../../server-functions/site-settings";
 
 // beforeLoad calls requireAuth(), a server function — must never be
 // statically prerendered. See scripts/check-prerender.ts.
@@ -17,5 +24,30 @@ export const Route = createFileRoute("/admin")({
     }
     return { user };
   },
-  component: () => <Outlet />,
+  // Re-fetches settings/URLs rather than reading __root.tsx's loader data —
+  // those server functions are cheap (single D1 select / env var read) and
+  // there's no parent-loaderData accessor in TanStack Router, only context.
+  loader: async () => {
+    const [settings, publicSiteUrl, logoutUrl] = await Promise.all([
+      getCadmeaSiteSettings(),
+      getPublicSiteUrl(),
+      getLogoutUrl(),
+    ]);
+    return { settings, publicSiteUrl, logoutUrl };
+  },
+  component: AdminLayout,
 });
+
+function AdminLayout() {
+  const data = Route.useLoaderData();
+
+  return (
+    <PanelShell
+      siteName={data().settings?.siteName ?? "Cadmea"}
+      publicSiteUrl={data().publicSiteUrl}
+      logoutUrl={data().logoutUrl}
+    >
+      <Outlet />
+    </PanelShell>
+  );
+}
