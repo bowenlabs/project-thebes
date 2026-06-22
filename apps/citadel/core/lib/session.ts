@@ -1,32 +1,53 @@
-// Signatures only — implemented in Phase 3. See CLAUDE.md "Authentication"
-// for the session model (signed cookie + KV entry with TTL) these wrap.
+// Session storage on top of @bowenlabs/cadmus/session — owns the
+// `session:{id}` key convention and the 7-day TTL. Citadel-specific:
+// uses the dedicated `SESSION` KV namespace (separate from the `KV`
+// namespace used for magic-link tokens and rate-limit counters), and
+// knows the session payload shape (userId/email/role).
+import { generateSessionId } from "@bowenlabs/cadmus/auth";
+import {
+  createSession as kvCreateSession,
+  deleteSession as kvDeleteSession,
+  getSession as kvGetSession,
+} from "@bowenlabs/cadmus/session";
+
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const SESSION_KEY_PREFIX = "session:";
 
 export interface Session {
-  userId: string;
+  userId: number;
   email: string;
+  role: string;
   createdAt: number;
 }
 
 /** Creates a session, stores it in KV under a generated session ID, with TTL. */
-export function createSession(
-  _kv: KVNamespace,
-  _user: { userId: string; email: string },
+export async function createSession(
+  kv: KVNamespace,
+  user: { userId: number; email: string; role: string },
 ): Promise<{ sessionId: string }> {
-  throw new Error("createSession: not implemented until Phase 3");
+  const sessionId = generateSessionId();
+  const session: Session = { ...user, createdAt: Date.now() };
+  await kvCreateSession(
+    kv,
+    `${SESSION_KEY_PREFIX}${sessionId}`,
+    session,
+    SESSION_TTL_SECONDS,
+  );
+  return { sessionId };
 }
 
 /** Reads a session by ID from KV. Returns null if missing or expired. */
 export function getSession(
-  _kv: KVNamespace,
-  _sessionId: string,
+  kv: KVNamespace,
+  sessionId: string,
 ): Promise<Session | null> {
-  throw new Error("getSession: not implemented until Phase 3");
+  return kvGetSession<Session>(kv, `${SESSION_KEY_PREFIX}${sessionId}`);
 }
 
 /** Deletes a session from KV (logout). */
 export function deleteSession(
-  _kv: KVNamespace,
-  _sessionId: string,
+  kv: KVNamespace,
+  sessionId: string,
 ): Promise<void> {
-  throw new Error("deleteSession: not implemented until Phase 3");
+  return kvDeleteSession(kv, `${SESSION_KEY_PREFIX}${sessionId}`);
 }

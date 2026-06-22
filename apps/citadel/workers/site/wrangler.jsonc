@@ -52,5 +52,13 @@
 			"service": "citadel-cms",
 			"entrypoint": "CmsService"
 		}
-	]
+	],
+	"vars": {
+		// Worker 2's (CMS) public origin — mirrors the comment in
+		// workers/cms/wrangler.jsonc for SERVER_URL. Used to build the
+		// absolute cross-Worker redirect target after magic-link verify
+		// (/admin/dashboard lives in Worker 2, not here). Not a secret —
+		// override per environment when custom domains are configured.
+		"CMS_URL": "https://citadel-cms.baylee-c3e.workers.dev"
+	}
 }

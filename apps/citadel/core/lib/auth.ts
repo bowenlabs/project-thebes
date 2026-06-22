@@ -1,34 +1,80 @@
-// Signatures only — implemented in Phase 3. See CLAUDE.md "Authentication"
-// for the full magic-link flow these wrap.
+// Magic-link token issuance/verification and session-cookie signing —
+// Citadel's wiring on top of the generic @bowenlabs/cadmus/auth
+// primitives. See CLAUDE.md "Authentication" for the full flow.
+import {
+  generateToken,
+  hashToken,
+  signSession,
+  verifySession,
+} from "@bowenlabs/cadmus/auth";
 
-/** Generates a magic-link token, stores its hash in KV (15 min TTL), keyed by email. */
-export function createMagicLinkToken(
-  _kv: KVNamespace,
-  _email: string,
+const MAGIC_LINK_TTL_SECONDS = 900; // 15 min
+const MAGIC_LINK_KEY_PREFIX = "magiclink:";
+
+/**
+ * Generates a magic-link token, stores its hash in KV (15 min TTL) mapped
+ * to the email it was issued for. The raw token is what gets emailed —
+ * only its hash ever touches KV.
+ */
+export async function createMagicLinkToken(
+  kv: KVNamespace,
+  email: string,
 ): Promise<{ token: string }> {
-  throw new Error("createMagicLinkToken: not implemented until Phase 3");
+  const token = generateToken();
+  const hash = await hashToken(token);
+  await kv.put(`${MAGIC_LINK_KEY_PREFIX}${hash}`, email, {
+    expirationTtl: MAGIC_LINK_TTL_SECONDS,
+  });
+  return { token };
 }
 
-/** Hashes the raw token and validates it against the stored KV hash; deletes the entry on success (single use). */
-export function verifyMagicLinkToken(
-  _kv: KVNamespace,
-  _token: string,
+/**
+ * Hashes the raw token and validates it against the stored KV hash;
+ * deletes the entry on success (single use). Retries the KV read once
+ * (G3: KV is eventually consistent, and this often runs moments after
+ * createMagicLinkToken wrote the entry on a different edge location).
+ */
+export async function verifyMagicLinkToken(
+  kv: KVNamespace,
+  token: string,
 ): Promise<{ email: string } | null> {
-  throw new Error("verifyMagicLinkToken: not implemented until Phase 3");
+  const hash = await hashToken(token);
+  const key = `${MAGIC_LINK_KEY_PREFIX}${hash}`;
+
+  let email: string | null = null;
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    email = await kv.get(key);
+    if (email !== null) break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 100));
+  }
+  if (email === null) return null;
+
+  await kv.delete(key);
+  return { email };
 }
 
-/** HMAC-signs a session cookie value using Web Crypto (`crypto.subtle`) — never Node's `crypto`. */
-export function signSessionCookie(
-  _value: string,
-  _secret: string,
+/**
+ * HMAC-signs a session ID into the `{value}.{signature}` cookie format
+ * middleware.ts parses.
+ */
+export async function signSessionCookie(
+  value: string,
+  secret: string,
 ): Promise<string> {
-  throw new Error("signSessionCookie: not implemented until Phase 3");
+  const signature = await signSession(value, secret);
+  return `${value}.${signature}`;
 }
 
-/** Verifies an HMAC-signed session cookie value. */
-export function verifySessionCookie(
-  _signed: string,
-  _secret: string,
+/**
+ * Verifies an HMAC-signed session cookie value, returning the session ID
+ * if valid.
+ */
+export async function verifySessionCookie(
+  signed: string,
+  secret: string,
 ): Promise<string | null> {
-  throw new Error("verifySessionCookie: not implemented until Phase 3");
+  const [value, signature] = signed.split(".");
+  if (!value || !signature) return null;
+  const valid = await verifySession(value, signature, secret);
+  return valid ? value : null;
 }

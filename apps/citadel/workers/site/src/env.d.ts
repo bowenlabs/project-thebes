@@ -6,11 +6,14 @@ declare global {
   interface Env {
     DB: D1Database;
     KV: KVNamespace;
+    SESSION: KVNamespace;
     R2: R2Bucket;
+    EMAIL: SendEmail;
     ASSETS: Fetcher;
     SESSION_SECRET: string;
-    OWNER_EMAIL: string;
+    ADMIN_EMAIL: string;
     MEDIA_URL: string;
+    CMS_URL: string;
     /** Service Binding RPC into Worker 2 (CMS) — see apps/citadel/workers/cms/app/service.ts */
     CMS: Service<typeof CmsService>;
   }

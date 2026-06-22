@@ -8,6 +8,20 @@
       "when": 1781871063111,
       "tag": "0000_sudden_midnight",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782089311280,
+      "tag": "0001_useful_the_liberteens",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782089484323,
+      "tag": "0002_loose_lily_hollister",
+      "breakpoints": true
     }
   ]
 }

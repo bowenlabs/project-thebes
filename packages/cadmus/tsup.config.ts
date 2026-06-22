@@ -21,5 +21,5 @@ export default defineConfig({
   target: "es2022",
   // Cloudflare Workers target — no Node.js built-ins
   platform: "browser",
-  external: ["hono", "drizzle-orm"],
+  external: ["hono", "drizzle-orm", "cloudflare:email"],
 });

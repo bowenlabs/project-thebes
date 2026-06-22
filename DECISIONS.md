@@ -9,6 +9,180 @@
 
 ---
 
+## 2026-06-21 — Phase 3 (authentication) complete
+
+**Decision:** Phase 3 milestones (issue #4) are done — magic-link auth,
+session management, and the two still-open security-audit gaps from
+issue #4's comments (rate-limiting on CMS write paths, CSRF) are all
+landed. One scope addition beyond the original milestones, two
+corrections to the original plan, and one real bug found and fixed along
+the way:
+
+**Cadmus primitives implemented** (`cadmus/auth`, `cadmus/session`,
+`cadmus/rate-limit`, `cadmus/email` — all were empty stubs):
+- `auth`: `generateToken`/`hashToken`/`generateSessionId`/`signSession`/
+  `verifySession`, Web Crypto only.
+- `session`: generic JSON-over-KV store with retry-on-miss (G3) —
+  no key-prefix convention baked in, that's Citadel's to own.
+- `rate-limit`: fixed-window counter over KV, best-effort (not atomic —
+  acceptable at this scale; a Durable Object would be the answer if exact
+  counts ever mattered).
+- `email`: wraps the CF `send_email` binding via `mimetext/browser` (no
+  Node APsIs) for raw MIME construction. Added `mimetext` as a real
+  dependency of `@bowenlabs/cadmus`.
+- `cloudflare:email` added to `tsup.config.ts`'s `external` list — it's a
+  Workers-runtime built-in, not bundleable.
+
+**Binding split (per discussion):** sessions now live in the dedicated
+`SESSION` KV namespace (already provisioned in `wrangler.jsonc` but
+unused until now); magic-link tokens and rate-limit counters stay in the
+generic `KV` namespace. `middleware.ts`'s `requireAuth()` was refactored
+to use this plus `core/lib/session.ts`'s retry-aware `getSession`.
+
+**Real bug found and fixed:** TanStack Start's `beforeLoad` route guards
+(`src/routes/admin/route.tsx`) only run during client-side navigation —
+they do **not** protect a server function's own HTTP endpoint
+(`/_serverFn/*`) from being called directly. `pages.ts`'s
+`createPage`/`updatePage`/`deletePage`/`getPages`/`getPage` had **no auth
+check at all** on the actual mutating endpoints — anyone who found the
+endpoint URL could read or write pages unauthenticated, route guard
+notwithstanding. Added `requireAuthOrThrow()` (middleware.ts) and call it
+first thing in every one of these handlers.
+
+**CSRF finding, partially redundant:** issue #4 flagged that admin
+mutations rely solely on `SameSite=Lax`. Added `requireSameOriginOrThrow()`
+and wired it into the three mutating `pages.ts` functions — but discovered
+mid-implementation that TanStack Start already ships a default CSRF
+middleware (`Sec-Fetch-Site`/Origin/Referer same-origin check) applied to
+every server function automatically, since this app never overrode
+`requestMiddleware`. The custom check is redundant with that default but
+kept anyway as explicit, visible defense-in-depth that doesn't silently
+disappear if someone later adds a custom start config.
+
+**Rate-limiting scope, narrower than the issue's literal ask:** wired
+`checkRateLimit` into `pages.ts`'s three write paths (30 req/min per
+session email). Did **not** wire it into `CmsService`'s RPC or
+`mountCmsRoutes`'s REST surface — the RPC is a Cloudflare Service Binding,
+which isn't internet-reachable at all (only callable by other Workers on
+the same account), and `mountCmsRoutes` isn't actually mounted anywhere
+in this app yet. Rate-limiting either would add complexity defending
+against a caller that doesn't exist yet.
+
+**Build gotcha, worth remembering:** a server-functions file
+(`pages.ts`) statically importing a module that dynamically imports
+`cloudflare:workers` (`middleware.ts`) breaks the client build — TanStack
+tries to bundle the whole imported module for the client-side RPC stub,
+and `cloudflare:workers` doesn't resolve outside the Workers runtime. Fix
+was making `requireAuthOrThrow`/`requireSameOriginOrThrow` themselves
+`createServerFn`-wrapped (matching the file's other exports) rather than
+plain functions — TanStack's plugin specifically knows to strip
+`createServerFn` handler bodies from the client bundle.
+
+**Dev/prod email detection, corrected from initial design:** originally
+planned to detect dev mode by checking whether the `send_email` binding
+call failed (no real Email Routing domain locally). Verified experimentally
+that `wrangler dev`'s local `send_email` emulation doesn't fail that way —
+it silently writes an `.eml` file instead. Switched to checking the
+request hostname (`localhost`/`127.0.0.1`) — deterministic, no deployed
+environment is ever literally `localhost`.
+
+**Verified:** full magic-link → verify → authenticated `/admin/pages`
+request → logout cycle against real `wrangler dev` instances for both
+Workers (shared local KV/D1 state), including single-use token
+enforcement (replay correctly redirects to `/login?error=invalid`) and
+post-logout session invalidation. `pnpm build` (cadmus → site → cms),
+`pnpm lint`, `pnpm test:cadmus` (85/85) all clean.
+
+**Revisit if:** `mountCmsRoutes` or `CmsService`'s RPC surface ever
+becomes genuinely internet-reachable (e.g. RPC exposed via a public Hono
+route) — the rate-limiting/CSRF reasoning above would no longer hold.
+
+---
+
+## 2026-06-21 — Phase 2 (database and schema) complete
+
+**Decision:** Phase 2 milestones (issue #3) are done, with scope narrowed
+from the original `SECTION_1_PLAN.md` list per the two entries below this
+one. `apps/citadel/core/db/schema.ts` now hand-writes `users` and
+`site_settings` only — `sessions`/`magic_link_tokens` were dropped (they
+live in KV, not D1; the original plan predates the documented KV-based
+auth design) and `forms`/`form_submissions`/`contacts`/`activities` were
+dropped (moved to `examples/citadel-smb-template/` per the CMS
+repositioning). `pages` remains the only `cadmus/cms`-generated table.
+
+**What changed:**
+- `core/db/schema.ts` — `users` (unique `email` index) and `site_settings`
+  (singleton enforced via a `CHECK(id = 1)` constraint, verified to
+  actually reject a second row on the local D1 instance).
+- `drizzle.config.ts` — `schema` now globs both `schema.ts` (hand-written)
+  and `schema.generated.ts` (cms-generated) so `db:generate` diffs both.
+- `core/lib/db.ts` — merges both schema modules so Drizzle's typed client
+  sees `users`/`siteSettings`/`pages` together.
+- `apps/citadel/seed.ts` — idempotent (`INSERT OR IGNORE`), inserts
+  `site_settings` (id=1) and an owner user from `ADMIN_EMAIL` (renamed from
+  `OWNER_EMAIL` the same day — read from `workers/cms/.dev.vars`). Shells
+  out to `wrangler d1 execute` rather than holding a `D1Database` binding
+  directly, since it runs under Node/tsx as dev tooling, not inside the
+  Worker isolate.
+- Found and fixed a real bug during verification: `users.createdAt` used
+  Drizzle's `$defaultFn`, which only applies on inserts through Drizzle's
+  query builder — raw SQL inserts (like the seed script's) hit a silent
+  `NOT NULL` failure, swallowed by `INSERT OR IGNORE`. Switched to a real
+  SQL-level default (`default(sql\`(unixepoch())\`)`) so both insert paths
+  work.
+- `drizzle.config.ts` `dbCredentials` wired to `CLOUDFLARE_ACCOUNT_ID` /
+  `CLOUDFLARE_DATABASE_ID` / `CLOUDFLARE_D1_TOKEN` env vars (`.env`,
+  gitignored, see `.env.example`) — `pnpm db:studio` uses the `d1-http`
+  driver, which talks to remote D1 over Cloudflare's HTTP API and cannot
+  introspect the local wrangler sqlite file.
+
+**Verified:** `pnpm db:generate` (clean diff, `pages` untouched), `pnpm
+db:migrate` (applies locally, singleton CHECK confirmed to reject a second
+`site_settings` row via direct `wrangler d1 execute`), `pnpm seed` (run
+twice — confirmed idempotent, exactly one row each), `pnpm lint` (zero
+violations), `pnpm test:cadmus` (68/68 passing).
+
+**Update, same day:** maintainer supplied real Cloudflare credentials.
+`pnpm db:studio` confirmed working end-to-end against the remote database
+(named `krypto-db` in the Cloudflare dashboard — same UUID as
+`database_id` in `wrangler.jsonc`, so the binding is correct regardless of
+the display-name mismatch). Discovered via the same credentials that
+production D1 hadn't received the Phase 2 migrations yet (`db:migrate:prod`
+had never been run) — ran it, confirmed table count went from 2 to 4
+(`pages`, `d1_migrations` → plus `users`, `site_settings`). Phase 2 is now
+fully closed end-to-end, local and production.
+
+---
+
+## 2026-06-21 — `site_settings` stays a hand-written core table, not an example collection
+
+**Decision:** Partially reverses the 2026-06-20 CMS-repositioning entry's
+treatment of `site_settings`. That entry framed `site_settings`-beyond-the-
+singleton-infra-fields as moving to `examples/citadel-smb-template/` along
+with `forms`/`contacts`/`activities`. Instead, `site_settings` (identity,
+appearance, structural colors, contact, nav, seo, domain, features) stays a
+hand-written Drizzle table in `apps/citadel/core/db/schema.ts`, alongside
+`users`/`sessions`/`magic_link_tokens` — not a `cadmus/cms` collection, and
+not moved to the example template.
+
+**Rationale:** `site_settings` is a singleton, not a content collection —
+every Citadel deployment needs exactly one row of site-wide config
+(theme, domain, nav) to render at all. That's infra, same category as
+`users`/`sessions`, not an example of "content an operator might model."
+Forms/contacts/activities remain in the example template — those are
+genuinely optional SMB-specific content types.
+
+**What changes for Phase 2 (issue #3):** `core/db/schema.ts` now covers
+`users`, `sessions`, `magic_link_tokens`, `site_settings` as hand-written
+tables — `pages` remains the only `cadmus/cms`-generated collection. Seed
+skeleton inserts a `site_settings` row (id=1) alongside the owner user.
+
+**Revisit if:** Section 2+ wants per-tenant or multi-site settings, at
+which point the singleton assumption breaks and this needs to move to a
+real collection.
+
+---
+
 ## 2026-06-21 — Phase 1 (project foundation) complete
 
 **Decision:** Phase 1 milestones (issue #2, `SECTION_1_PLAN.md`) are done.

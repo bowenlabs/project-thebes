@@ -65,7 +65,7 @@ pnpm dev:cms    # Worker 2 only (:3001)
 # apps/citadel/workers/site/.dev.vars
 # apps/citadel/workers/cms/.dev.vars
 SESSION_SECRET=dev-secret-change-in-production
-OWNER_EMAIL=you@yourdomain.com
+ADMIN_EMAIL=you@yourdomain.com
 MEDIA_URL=http://localhost:3001/media
 ```
 

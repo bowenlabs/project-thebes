@@ -216,7 +216,7 @@ Flow:   Owner enters email → cadmus/auth generates token (Web Crypto API)
 Session: Signed cookie (HttpOnly, Secure, SameSite=Lax) + KV entry with TTL
 Auth guard: TanStack Start middleware.ts — HMAC verify + KV session lookup
 
-Dev:    OWNER_EMAIL in .dev.vars bypasses email send.
+Dev:    ADMIN_EMAIL in .dev.vars bypasses email send.
         Raw token logged to console. Navigate directly to /admin/dashboard.
 ```
 
@@ -536,7 +536,7 @@ Cloudflare Workers secrets for production.
 # Cloudflare Workers secrets for production
 SESSION_SECRET=        ← session signing secret (openssl rand -hex 32)
 SERVER_URL=            ← full public site URL, no trailing slash
-OWNER_EMAIL=           ← owner email for CMS account + notifications
+ADMIN_EMAIL=           ← owner email for CMS account + notifications
 MEDIA_URL=             ← public R2 bucket base URL, no trailing slash
 
 # Optional

@@ -279,7 +279,7 @@ interface Env {
   R2: R2Bucket
   ASSETS: Fetcher
   SESSION_SECRET: string
-  OWNER_EMAIL: string
+  ADMIN_EMAIL: string
   MEDIA_URL: string
 }
 
@@ -296,7 +296,7 @@ declare namespace App {
 ```bash
 # apps/citadel/workers/site/.dev.vars — never commit
 SESSION_SECRET=dev-secret-change-in-production
-OWNER_EMAIL=you@yourdomain.com
+ADMIN_EMAIL=you@yourdomain.com
 MEDIA_URL=http://localhost:3001/media
 ```
 
@@ -562,7 +562,7 @@ pnpm wrangler types    # generates worker-configuration.d.ts
 ```bash
 # apps/citadel/workers/cms/.dev.vars — never commit
 SESSION_SECRET=dev-secret-change-in-production
-OWNER_EMAIL=you@yourdomain.com
+ADMIN_EMAIL=you@yourdomain.com
 MEDIA_URL=http://localhost:3001/media
 ```
 
