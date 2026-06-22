@@ -70,11 +70,9 @@ reads `pages` instead, as the one collection Citadel core actually ships.
 smoke test of Worker 1 confirming both the new `index.astro` query and the
 security headers are present on the actual response.
 
-**Not re-verified live this session:** `pnpm dev:cms` alone, both Workers
-together via `pnpm dev`, and `pnpm deploy`. Builds for both Workers are
-clean, which is the strongest signal short of a live run, but these three
-should still get an explicit pass before treating Phase 1 as fully closed
-operationally (not just code-complete).
+**Update, same day:** the maintainer ran `pnpm dev:cms`, `pnpm dev` (both
+Workers concurrently), and `pnpm deploy` live — all three worked. Phase 1
+is now fully closed, both code-complete and operationally verified.
 
 **Revisit if:** Phase 2+ work reveals the `core/lib/auth.ts`/`session.ts`
 stub signatures don't match what the real magic-link flow needs — they

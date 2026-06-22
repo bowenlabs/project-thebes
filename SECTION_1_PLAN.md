@@ -1620,8 +1620,14 @@ That all comes in Phase 2+.
 
 **Verification:**
 - [x] **1.41** `pnpm dev:site` confirmed live 2026-06-21 — `index.astro` renders, security headers present on the response (`curl -I` checked)
+- [x] **1.42** `pnpm dev:cms` confirmed live by the maintainer 2026-06-21 — `/admin/dashboard` redirects unauth to `/login` as expected
+- [x] **1.43** `pnpm dev` confirmed live by the maintainer 2026-06-21 — both Workers start concurrently with one command
+- [x] **1.44** `pnpm build` completes for both Workers (verified via `build:cadmus`/`build:site`/`build:cms` individually, equivalent to the combined script)
+- [x] **1.45** `pnpm deploy` confirmed live by the maintainer 2026-06-21 — both Workers deploy to Cloudflare without errors
 - [x] **1.46** `pnpm lint` passes with zero violations, including the new `check-prerender.ts` check
-- [ ] **1.42**–**1.45**, **1.47** Not yet re-verified live this session (Worker 2 dev, both-Workers concurrent dev, full deploy) — see the catalog below for what's left and why 1.47 (`DECISIONS.md` entry) was held until the stub-route question resolved (now resolved — see DECISIONS.md's 2026-06-21 Phase 1 entry).
+- [x] **1.47** Phase 1 completion recorded in `DECISIONS.md` 2026-06-21
+
+All 47 Phase 1 milestones are now closed.
 
 ### Gotchas
 - G1 (binding access), G5 (both Workers must run for full local dev), G6 (cookie auth needs custom domain for proper testing)
@@ -1680,8 +1686,8 @@ Verified with `pnpm lint` (zero violations, including the new check), `pnpm buil
 
 Verified with `pnpm lint`, `pnpm build:cadmus`/`build:site`/`build:cms`, and `pnpm test:cadmus` (68/68) — all clean after this batch. Phase 1 completion logged in `DECISIONS.md`.
 
-**Not yet attempted:**
-14. Live re-verification of 1.42–1.45 (Worker 2 dev alone, both Workers concurrently via `pnpm dev`, and a full `pnpm deploy`) — 1.41 and 1.46 are confirmed live (see Verification section above); 1.42/1.44 have passed incidentally via clean builds and the `/admin` guard's existing logic, but haven't been re-run live this session.
+**Resolved 2026-06-21 (batch 5 — maintainer-run):**
+14. `pnpm dev:cms`, `pnpm dev` (both Workers), and `pnpm deploy` confirmed live by the maintainer — 1.42, 1.43, 1.45. All 47 Phase 1 milestones are now closed.
 
 **Observations outside the original milestone list:**
 - `src/routes/admin/route.tsx` guards the whole `/admin` subtree rather than a single `dashboard.tsx` route — a reasonable superset of 1.15, left as-is.
