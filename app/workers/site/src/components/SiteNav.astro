@@ -1,4 +1,6 @@
 ---
+import type { RenderedImage } from "@bowenlabs/cadmus/storage";
+
 export interface NavLink {
   label: string;
   href: string;
@@ -6,12 +8,13 @@ export interface NavLink {
 
 interface Props {
   siteName: string;
-  logoUrl?: string | null;
+  /** Already run through ImageService.render() by the caller (layout.astro) — never a raw stored URL. */
+  logo?: RenderedImage | null;
   links: NavLink[];
   activePath: string;
 }
 
-const { siteName, logoUrl, links, activePath } = Astro.props;
+const { siteName, logo, links, activePath } = Astro.props;
 
 // Treats "/" itself as exact, otherwise prefix-matches so a nested route
 // under a top-level link still highlights its parent.
@@ -20,9 +23,20 @@ const isActive = (href: string) =>
 ---
 
 <header class="navbar bg-[var(--navbar,_var(--color-base-100))] text-[var(--navbar-foreground,_var(--color-base-content))]">
-	<nav class="container mx-auto flex items-center justify-between px-[var(--container-padding-x)] py-2" aria-label="Main">
+	<nav class="container mx-auto flex items-center justify-between px-[var(--spacing-container-x)] py-2" aria-label="Main">
 		<a href="/" class="flex items-center gap-2 font-display text-lg font-semibold">
-			{logoUrl && <img src={logoUrl} alt="" width="32" height="32" loading="eager" decoding="async" />}
+			{logo && (
+				<img
+					src={logo.src}
+					srcset={logo.srcset}
+					sizes={logo.sizes}
+					alt=""
+					width="32"
+					height="32"
+					loading="eager"
+					decoding="async"
+				/>
+			)}
 			<span>{siteName}</span>
 		</a>
 

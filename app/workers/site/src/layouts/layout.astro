@@ -6,6 +6,7 @@ import { pages } from "@core/db/schema.generated";
 import { buildTokenStyle } from "@core/lib/design-system/build-token-style";
 import { getFontConfig } from "@core/lib/font-pairing";
 import { getSiteSettings } from "@core/lib/get-site-settings";
+import { createR2ImageService } from "@core/lib/image-service";
 import phosphorCss from "@phosphor-icons/web/regular?url";
 import { eq } from "drizzle-orm";
 import SiteFooter, { type SocialLink } from "../components/SiteFooter.astro";
@@ -49,6 +50,14 @@ const navLinks: NavLink[] =
 const socialLinks: SocialLink[] = Array.isArray(settings?.socialLinks)
   ? (settings.socialLinks as SocialLink[])
   : [];
+
+// Never read settings.logoUrl directly into an <img> — always through
+// ImageService.render(), same reasoning as BlockRenderer.astro's image
+// block (forward-compat with a future Cloudflare Images extension).
+const imageService = createR2ImageService(env.R2, env.MEDIA_URL);
+const renderedLogo = settings?.logoUrl
+  ? imageService.render({ url: settings.logoUrl, alt: "" })
+  : null;
 ---
 
 <html lang="en" data-theme={`theme-${themeName}`} class={darkModeClass}>
@@ -84,7 +93,7 @@ const socialLinks: SocialLink[] = Array.isArray(settings?.socialLinks)
 		{showChrome && (
 			<SiteNav
 				siteName={settings?.siteName ?? "Thebes"}
-				logoUrl={settings?.logoUrl}
+				logo={renderedLogo}
 				links={navLinks}
 				activePath={Astro.url.pathname}
 			/>

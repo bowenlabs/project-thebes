@@ -1,5 +1,7 @@
 ---
+import { env } from "cloudflare:workers";
 import type { SiteSettings } from "@core/lib/get-site-settings";
+import { createR2ImageService } from "@core/lib/image-service";
 
 interface Props {
   settings: SiteSettings | null;
@@ -8,18 +10,27 @@ interface Props {
 }
 
 const { settings, heroTitle, heroBody } = Astro.props;
+
+// Never read settings.logoUrl directly into an <img> — see layout.astro's
+// SiteNav usage for the same reasoning.
+const imageService = createR2ImageService(env.R2, env.MEDIA_URL);
+const renderedLogo = settings?.logoUrl
+  ? imageService.render({ url: settings.logoUrl, alt: "" })
+  : null;
 ---
 
-<section class="px-[var(--container-padding-x)] py-[var(--section-padding-y)]">
-	<div class="grid gap-[var(--grid-gap)] md:grid-cols-2 md:items-center">
+<section class="px-[var(--spacing-container-x)] py-[var(--spacing-section-y)]">
+	<div class="grid gap-[var(--spacing-grid-gap)] md:grid-cols-2 md:items-center">
 		<div>
 			<h1 class="font-display text-4xl font-semibold">{heroTitle}</h1>
 			{heroBody && <p class="mt-4 text-lg opacity-80">{heroBody}</p>}
 		</div>
 		<div class="aspect-square overflow-hidden rounded-box bg-base-200">
-			{settings?.logoUrl && (
+			{renderedLogo && (
 				<img
-					src={settings.logoUrl}
+					src={renderedLogo.src}
+					srcset={renderedLogo.srcset}
+					sizes={renderedLogo.sizes}
 					alt=""
 					loading="lazy"
 					decoding="async"
