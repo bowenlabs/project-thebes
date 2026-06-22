@@ -89,12 +89,17 @@ thebes/
 │       ├── src/
 │       │   ├── CollectionList.tsx  ← generic list view, driven by admin meta
 │       │   ├── CollectionEdit.tsx  ← generic edit/create form
-│       │   └── index.ts
-│       ├── package.json         ← name: "@bowenlabs/cadmea"; exports map points
-│       │                          at src/index.ts directly — shipped as Solid
-│       │                          JSX source, not a tsup bundle (see DECISIONS.md
-│       │                          2026-06-22). Consumed by app/workers/cadmea
-│       │                          via Vite's own workspace-package handling.
+│       │   ├── index.ts
+│       │   └── tanstack-start/  ← @bowenlabs/cadmea/tanstack-start subpath —
+│       │                          route-mounting helper (createCollectionListPage/
+│       │                          CreatePage/EditPage), the equivalent of
+│       │                          @payloadcms/next's catch-all route pattern
+│       ├── tsup.config.ts       ← tsup-preset-solid — real server/browser/
+│       │                          worker/node/deno build (see DECISIONS.md
+│       │                          2026-06-22), not source-only like the
+│       │                          package started as
+│       ├── package.json         ← name: "@bowenlabs/cadmea"; exports map
+│       │                          auto-written by tsup-preset-solid
 │       └── README.md
 │
 ├── app/                          ← Thebes — the one reference app
@@ -159,7 +164,8 @@ Never let this boundary blur.
 | Framework build | **tsup** → `dist/` (ESM + CJS + `.d.ts`) |
 | Public site SSR | **Astro** with `@astrojs/cloudflare` adapter — Worker 1 |
 | CMS engine | **@bowenlabs/cadmus/cms** — collections, fields, schema codegen, Local API, admin-UI introspection metadata |
-| CMS admin UI components | **@bowenlabs/cadmea** — generic SolidJS list/edit views, driven by the engine's admin metadata; shipped as source, not a bundle (see DECISIONS.md 2026-06-22) |
+| CMS admin UI components | **@bowenlabs/cadmea** — generic SolidJS list/edit views, driven by the engine's admin metadata; built with `tsup-preset-solid` (see DECISIONS.md 2026-06-22) |
+| CMS route-mounting helper | **@bowenlabs/cadmea/tanstack-start** — factory functions wiring the UI components to `@tanstack/solid-query`, the equivalent of `@payloadcms/next`'s catch-all route pattern |
 | CMS admin | **TanStack Start** (Solid target) — Worker 2, VMFE architecture |
 | CMS data fetching | **@tanstack/solid-query** — server state, API communication |
 | CMS routing | **@tanstack/solid-router** — built into TanStack Start |

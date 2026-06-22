@@ -1,0 +1,55 @@
+import type { CollectionConfig } from "@bowenlabs/cadmus/cms";
+import { createMutation, useQueryClient } from "@tanstack/solid-query";
+import { createSignal } from "solid-js";
+import { CollectionEdit } from "../CollectionEdit.js";
+
+export interface CollectionCreatePageOptions<
+  TCreated extends Record<string, unknown>,
+> {
+  collection: CollectionConfig;
+  /** Page heading — e.g. "New page". Defaults to `New ${collection.slug}`. */
+  label?: string;
+  submitLabel?: string;
+  createFn: (values: Record<string, unknown>) => Promise<TCreated>;
+  /** Query key to invalidate after a successful create — e.g. `['pages']`. */
+  invalidateQueryKey: readonly unknown[];
+  /** Called after a successful create+cache-invalidation — wire this to navigate to the new row's edit page. */
+  onCreated?: (created: TCreated) => void;
+}
+
+/**
+ * Builds a create-page component for a collection. See
+ * `createCollectionListPage`'s doc comment for the same rationale on
+ * keeping navigation in the route file rather than this package.
+ */
+export function createCollectionCreatePage<
+  TCreated extends Record<string, unknown>,
+>(options: CollectionCreatePageOptions<TCreated>) {
+  return function CollectionCreatePage() {
+    const queryClient = useQueryClient();
+    const [error, setError] = createSignal<string>();
+
+    const create = createMutation(() => ({
+      mutationFn: options.createFn,
+      onSuccess: (created: TCreated) => {
+        queryClient.invalidateQueries({ queryKey: options.invalidateQueryKey });
+        options.onCreated?.(created);
+      },
+      onError: (e: Error) => setError(e.message),
+    }));
+
+    return (
+      <div class="flex flex-col gap-4">
+        <h1 class="text-xl font-semibold">
+          {options.label ?? `New ${options.collection.slug}`}
+        </h1>
+        <CollectionEdit
+          config={options.collection}
+          submitLabel={options.submitLabel ?? "Create"}
+          error={error()}
+          onSubmit={(values) => create.mutate(values)}
+        />
+      </div>
+    );
+  };
+}

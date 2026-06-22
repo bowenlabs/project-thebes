@@ -26,12 +26,15 @@ than owning the components directly.
 pnpm add @bowenlabs/cadmea @bowenlabs/cadmus solid-js
 ```
 
-Shipped as Solid JSX source (the `exports` map points straight at
-`src/index.ts`), not a pre-built bundle — Solid's JSX needs
-`babel-preset-solid` to compile to its fine-grained-reactive output, which
-plain esbuild/tsup doesn't do. Your own bundler needs `vite-plugin-solid`
-(or the equivalent for your tooling) configured, the same as any other
-Solid component you'd write directly in your app.
+Built with [`tsup-preset-solid`](https://github.com/solidjs-community/tsup-preset-solid),
+which runs Solid's JSX through `babel-preset-solid` (via `esbuild-plugin-solid`)
+to produce real fine-grained-reactive output — not the generic
+`createElement`-style transform plain esbuild/tsup would otherwise
+produce. Ships separate `browser`/`worker`/`node`/`deno` export
+conditions, matching how `solid-js` itself ships, so the right build
+(client-hydration vs. SSR) resolves automatically wherever you consume it
+— including from outside this monorepo, unlike the source-only shape this
+package started as (see `DECISIONS.md`'s 2026-06-22 entries).
 
 ---
 
@@ -52,19 +55,66 @@ field (excluding `id`), with `text`/`select`/`number` editable inputs and
 skipped rather than crashing — contributions welcome.
 
 Both take a `CollectionConfig` (from `@bowenlabs/cadmus/cms`) as their
-`config` prop — see `app/workers/cadmea/src/routes/admin/pages/` in this
-repo for real usage.
+`config` prop.
+
+---
+
+## TanStack Start mounting helper
+
+```typescript
+import {
+  createCollectionListPage,
+  createCollectionCreatePage,
+  createCollectionEditPage,
+} from '@bowenlabs/cadmea/tanstack-start'
+```
+
+The equivalent of Payload's `@payloadcms/next` catch-all route pattern —
+factory functions that wire `CollectionList`/`CollectionEdit` together
+with `@tanstack/solid-query` (fetching, mutating, cache invalidation) and
+return a ready-to-use route `component`. TanStack Router's file-based
+routing still needs a real file per route (there's no runtime catch-all
+the way Next.js's `[[...segments]]` works), but each route file shrinks
+from ~40 hand-wired lines to ~15:
+
+```tsx
+// src/routes/admin/pages/index.tsx
+import { createCollectionListPage } from '@bowenlabs/cadmea/tanstack-start'
+import { createFileRoute, useNavigate } from '@tanstack/solid-router'
+import { pagesCollection } from '../../../../cadmea.config.js'
+import { getPages } from '../../server-functions/pages'
+
+export const Route = createFileRoute('/admin/pages/')({ component: PagesPage })
+
+function PagesPage() {
+  const navigate = useNavigate()
+  const Page = createCollectionListPage({
+    collection: pagesCollection,
+    label: 'Pages',
+    queryKey: ['pages'],
+    queryFn: () => getPages(),
+    newHref: '/admin/pages/new',
+    onRowClick: (row) => navigate({ to: '/admin/pages/$pageId', params: { pageId: String(row.id) } }),
+  })
+  return <Page />
+}
+```
+
+Navigation (`onRowClick`, `onCreated`, `onDeleted`) stays in the route
+file rather than this package calling `useNavigate()` itself — TanStack
+Router's route-typing is generated per-app, so a generic package can't
+produce a correctly-typed `navigate()` call for routes it doesn't know
+about. See `app/workers/cadmea/src/routes/admin/pages/` in this repo for
+all three factories in real use (list, create, edit+delete).
 
 ---
 
 ## What this isn't (yet)
 
-No route-mounting helper — each consuming route file wires up its own
-data fetching (`@tanstack/solid-query`) and navigation around these
-components. Payload's `@payloadcms/next` provides a catch-all route
-pattern for exactly this; Cadmea doesn't have an equivalent yet because
-one collection (`pages`) hasn't justified designing that API. Worth
-revisiting once more collections exist — see this repo's `DECISIONS.md`.
+No code-generation CLI that writes these route files for you from a
+collection config — you still create one thin file per collection per
+view. Worth revisiting once enough collections exist to justify that
+investment. See this repo's `DECISIONS.md`.
 
 ---
 

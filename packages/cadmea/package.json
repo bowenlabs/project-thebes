@@ -17,34 +17,112 @@
     "admin-ui"
   ],
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
   "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "peerDependencies": {
     "@bowenlabs/cadmus": "workspace:*",
+    "@tanstack/solid-query": ">=5.0.0",
+    "@tanstack/solid-router": ">=1.0.0",
     "solid-js": ">=1.9.0"
   },
   "devDependencies": {
+    "@bowenlabs/cadmus": "workspace:*",
     "@solidjs/testing-library": "latest",
+    "@tanstack/solid-query": "^5.101.0",
+    "@tanstack/solid-router": "latest",
     "@testing-library/dom": "latest",
     "@testing-library/jest-dom": "latest",
-    "@bowenlabs/cadmus": "workspace:*",
     "jsdom": "latest",
     "solid-js": "^1.9.13",
+    "tsup": "^8.5.1",
+    "tsup-preset-solid": "^2.2.0",
     "typescript": "latest",
     "vite-plugin-solid": "latest",
     "vitest": "latest"
   },
   "files": [
-    "src",
+    "dist",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "main": "./dist/index/server.js",
+  "module": "./dist/index/server.js",
+  "types": "./dist/index/index.d.ts",
+  "browser": {
+    "./dist/index/server.js": "./dist/index/index.js",
+    "./dist/tanstack-start/server.js": "./dist/tanstack-start/index.js"
+  },
+  "exports": {
+    ".": {
+      "worker": {
+        "import": {
+          "types": "./dist/index/index.d.ts",
+          "default": "./dist/index/server.js"
+        }
+      },
+      "browser": {
+        "import": {
+          "types": "./dist/index/index.d.ts",
+          "default": "./dist/index/index.js"
+        }
+      },
+      "deno": {
+        "import": {
+          "types": "./dist/index/index.d.ts",
+          "default": "./dist/index/server.js"
+        }
+      },
+      "node": {
+        "import": {
+          "types": "./dist/index/index.d.ts",
+          "default": "./dist/index/server.js"
+        }
+      },
+      "import": {
+        "types": "./dist/index/index.d.ts",
+        "default": "./dist/index/index.js"
+      }
+    },
+    "./tanstack-start": {
+      "worker": {
+        "import": {
+          "types": "./dist/tanstack-start/index.d.ts",
+          "default": "./dist/tanstack-start/server.js"
+        }
+      },
+      "browser": {
+        "import": {
+          "types": "./dist/tanstack-start/index.d.ts",
+          "default": "./dist/tanstack-start/index.js"
+        }
+      },
+      "deno": {
+        "import": {
+          "types": "./dist/tanstack-start/index.d.ts",
+          "default": "./dist/tanstack-start/server.js"
+        }
+      },
+      "node": {
+        "import": {
+          "types": "./dist/tanstack-start/index.d.ts",
+          "default": "./dist/tanstack-start/server.js"
+        }
+      },
+      "import": {
+        "types": "./dist/tanstack-start/index.d.ts",
+        "default": "./dist/tanstack-start/index.js"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "tanstack-start": [
+        "./dist/tanstack-start/index.d.ts"
+      ]
+    }
+  }
 }

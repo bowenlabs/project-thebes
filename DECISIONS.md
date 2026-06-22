@@ -9,6 +9,76 @@
 
 ---
 
+## 2026-06-22 — `@bowenlabs/cadmea` gets a real build + a TanStack Start mounting helper
+
+**Decision:** Closes the two gaps flagged when the package was first
+extracted: it shipped as raw Solid JSX source (untested outside this
+monorepo's workspace-symlink consumption) and had no equivalent of
+Payload's `@payloadcms/next` catch-all route pattern.
+
+**Real build, via `tsup-preset-solid`:** Added `tsup.config.ts` using
+[`tsup-preset-solid`](https://github.com/solidjs-community/tsup-preset-solid)
+(the Solid community's standard tool for exactly this), which runs JSX
+through `babel-preset-solid` via `esbuild-plugin-solid` — plain
+esbuild/tsup would have silently produced generic `createElement`-style
+output instead of Solid's fine-grained-reactive `template()`/`insert()`
+calls. Confirmed by inspecting the compiled output directly: the browser
+build uses `template`/`insert`/`effect` from `solid-js/web`; the separate
+server build uses `ssr`/`escape` — matching how `solid-js` itself ships
+dual builds. The preset auto-writes `package.json`'s `exports` map with
+`worker`/`browser`/`deno`/`node` conditions per entry, resolved correctly
+in this app's case via the Workers SSR environment loading the `worker`
+condition (confirmed via a live `wrangler dev` request rendering
+correctly with no SSR-vs-browser API mismatch).
+
+**`@bowenlabs/cadmea/tanstack-start` subpath:** Three factories —
+`createCollectionListPage`, `createCollectionCreatePage`,
+`createCollectionEditPage` — wrapping `CollectionList`/`CollectionEdit`
+with `@tanstack/solid-query` fetch/mutate/cache-invalidation logic,
+returning a ready-to-use route `component`. Not a true runtime catch-all
+(TanStack Router's file-based routing needs a real file per route, unlike
+Next.js's `[[...segments]]`), but shrinks each route file from ~40
+hand-wired lines to ~15. Navigation (`onRowClick`/`onCreated`/`onDeleted`)
+deliberately stays in the route file rather than the package calling
+`useNavigate()` itself — TanStack Router's route-typing is generated
+per-app, so a generic package can't produce a correctly-typed
+`navigate()` call for routes it doesn't know about.
+
+**Real bug caught during design, not just refactoring:** the original
+`$pageId.tsx` route's `queryKey: ["pages", id()]` evaluated `id()` once
+at component-creation time — fine when written inline inside
+`createQuery`'s own reactive tracking function (the original code), but
+would have gone stale if naively lifted into a factory's plain options
+object, since TanStack Router can reuse this component across a
+`$pageId` param change without remounting. Fixed by typing
+`CollectionEditPageOptions.queryKey` as `() => readonly unknown[]`,
+evaluated inside the factory's own `createQuery` tracking scope — so
+`id()` reads stay properly reactive regardless of which file calls it.
+
+**`app/workers/cadmea/src/routes/admin/pages/{index,new,$pageId}.tsx`**
+now consume the factories instead of hand-rolling query/mutation logic —
+refactor verified behavior-parity via direct SSR HTML inspection of all
+three routes (list header+new-link+loading-state, full create form with
+all four fields, edit heading+delete button), against a live `wrangler
+dev` instance.
+
+**Verified:** `pnpm lint`, `pnpm build` (cadmus → cadmea-pkg → site →
+cadmea-worker — note the new `build:cadmea-pkg` step inserted before the
+app builds, since `app/workers/cadmea` now needs the package's `dist/`
+output, not raw source), `pnpm test:cadmus` (85/85), `pnpm
+test:cadmea-pkg` (8/8), and the live SSR parity check above.
+
+**Revisit if:** more collections get added to `cadmea.config.ts` — at
+that point a code-generation CLI step (writing the thin per-collection
+route files automatically, closer to Payload's actual zero-boilerplate
+experience) becomes worth the investment. Also revisit once
+`@bowenlabs/cadmea` is actually published to npm (still pending — see the
+2026-06-22 entry below from earlier today) and someone tries consuming it
+from a genuinely separate project, to confirm the export-conditions
+resolution holds outside this monorepo's own toolchain too.
+
+---
+
 ## 2026-06-22 — `@bowenlabs/cadmea` package extracted; admin-UI components no longer live inline in the app
 
 **Decision:** Executed the extraction deferred in the previous entry. New
