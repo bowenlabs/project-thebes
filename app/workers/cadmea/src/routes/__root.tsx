@@ -9,15 +9,27 @@ import {
 } from "@tanstack/solid-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/solid-router-devtools";
 import type { JSX } from "solid-js";
+import BrandColorProvider from "../components/BrandColorProvider";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
+import { getCadmeaSiteSettings } from "../server-functions/site-settings";
 import appCss from "../styles.css?url";
 
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);if(mode==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',mode)}root.style.colorScheme=resolved;}catch(e){}})();`;
+// Root's own loader now reads site_settings via a server function (for the
+// design-system token cascade) — see check-prerender.ts's rule.
+export const prerender = false;
+
+// Only ever touches the `dark`/`light` class — `data-theme` is reserved for
+// the design-system's theme preset slug, written server-side by the route
+// loader / BrandColorProvider, never by this dark-mode init script.
+const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);root.style.colorScheme=resolved;}catch(e){}})();`;
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
 }>()({
+  // Runs for every route including the pre-auth redirect path — see
+  // getCadmeaSiteSettings's comment on why it's not behind requireAuthOrThrow.
+  loader: () => getCadmeaSiteSettings(),
   head: () => ({
     meta: [
       {
@@ -47,6 +59,7 @@ export const Route = createRootRouteWithContext<{
 
 function RootDocument(props: { children: JSX.Element }) {
   const context = Route.useRouteContext();
+  const settings = Route.useLoaderData();
 
   return (
     <html lang="en">
@@ -55,11 +68,22 @@ function RootDocument(props: { children: JSX.Element }) {
         <HeadContent />
       </head>
       <body class="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
-        <QueryClientProvider client={context().queryClient}>
-          <Header />
-          {props.children}
-          <Footer />
-        </QueryClientProvider>
+        <BrandColorProvider
+          theme={settings()?.theme}
+          brandColor={settings()?.brandColor}
+          secondaryColor={settings()?.secondaryColor}
+          tertiaryColor={settings()?.tertiaryColor}
+          spacingPreset={settings()?.spacingPreset}
+          typeTokens={
+            settings()?.typeTokens as Record<string, string> | null | undefined
+          }
+        >
+          <QueryClientProvider client={context().queryClient}>
+            <Header />
+            {props.children}
+            <Footer />
+          </QueryClientProvider>
+        </BrandColorProvider>
         <TanStackDevtools
           config={{
             position: "bottom-right",

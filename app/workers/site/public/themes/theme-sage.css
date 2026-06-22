@@ -1,0 +1,75 @@
+/* Sage — deep olive-green, organic, mossy, generous, pebble-round. */
+[data-theme="theme-sage"] {
+  color-scheme: light;
+
+  --color-base-100: oklch(97% 0.012 120);
+  --color-base-200: oklch(93% 0.016 120);
+  --color-base-300: oklch(87% 0.022 118);
+  --color-base-content: oklch(26% 0.025 120);
+
+  --color-primary: oklch(46% 0.09 130);
+  --color-primary-content: oklch(97% 0.01 130);
+
+  --color-secondary: oklch(58% 0.08 95);
+  --color-secondary-content: oklch(97% 0.01 95);
+
+  --color-accent: oklch(62% 0.12 145);
+  --color-accent-content: oklch(18% 0.03 145);
+
+  --color-neutral: oklch(30% 0.02 120);
+  --color-neutral-content: oklch(95% 0.008 120);
+
+  --color-info: oklch(68% 0.12 225);
+  --color-info-content: oklch(18% 0.04 225);
+  --color-success: oklch(58% 0.13 145);
+  --color-success-content: oklch(96% 0.01 145);
+  --color-warning: oklch(76% 0.15 85);
+  --color-warning-content: oklch(20% 0.05 85);
+  --color-error: oklch(58% 0.19 25);
+  --color-error-content: oklch(97% 0.01 25);
+
+  --radius-selector: 1.25rem;
+  --radius-field: 1rem;
+  --radius-box: 1.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+
+  /* Cadmea extension tokens */
+  --font-display-face: "Fraunces", Georgia, serif;
+  --font-body-face: "Mulish", system-ui, sans-serif;
+  --font-weight-display: 600;
+  --font-weight-body: 400;
+}
+
+[data-theme="theme-sage"].dark {
+  color-scheme: dark;
+
+  --color-base-100: oklch(22% 0.018 120);
+  --color-base-200: oklch(18% 0.016 120);
+  --color-base-300: oklch(15% 0.014 120);
+  --color-base-content: oklch(93% 0.008 120);
+
+  --color-primary: oklch(64% 0.1 130);
+  --color-primary-content: oklch(15% 0.02 130);
+
+  --color-secondary: oklch(68% 0.08 95);
+  --color-secondary-content: oklch(16% 0.02 95);
+
+  --color-accent: oklch(70% 0.12 145);
+  --color-accent-content: oklch(16% 0.03 145);
+
+  --color-neutral: oklch(28% 0.02 120);
+  --color-neutral-content: oklch(92% 0.008 120);
+
+  --color-info: oklch(72% 0.12 225);
+  --color-info-content: oklch(16% 0.04 225);
+  --color-success: oklch(64% 0.13 145);
+  --color-success-content: oklch(94% 0.01 145);
+  --color-warning: oklch(80% 0.15 85);
+  --color-warning-content: oklch(18% 0.05 85);
+  --color-error: oklch(64% 0.18 25);
+  --color-error-content: oklch(95% 0.01 25);
+}

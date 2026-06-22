@@ -385,6 +385,15 @@ Disable JS and reload — color must still be correct. No FOUC = **POC 2 complet
 Verify without a browser: `curl http://localhost:3000/token-test | grep -o '\-\-color-primary:[^;]*'`
 should show the darker override value (`42%`), not the theme file's value (`62%`).
 
+**Superseded by Phase 4 (2026-06-22):** this minimal fixture proved the
+DaisyUI v5 variable-name lesson above; it's gone now. `theme-test.css` was
+deleted and `/token-test` was rewritten into the real Phase 4 verification
+page (all six theme presets, dark mode, brand-color override, and the
+`?preview=1` postMessage round-trip) — see `app/workers/site/src/pages/token-test.astro`
+and DECISIONS.md's Phase 4 entry. The lesson in point 2 above still holds
+and is exactly what the real theme files in `public/themes/` were built
+against.
+
 ---
 
 ## Part 2 — Worker 2: TanStack Start Panel

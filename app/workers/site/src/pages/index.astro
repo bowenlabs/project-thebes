@@ -5,10 +5,11 @@ import { pages } from "@core/db/schema.generated";
 import { eq } from "drizzle-orm";
 import Layout from "../layouts/layout.astro";
 
-// `site_settings` (the original milestone 1.6 target) was repositioned to
-// examples/cadmea-smb-template/ during the CMS pivot — see DECISIONS.md's
-// 2026-06-20 entry — and doesn't exist in this schema. `pages` is the one
-// collection Cadmea core ships, so this placeholder reads that instead.
+// `site_settings` stays a hand-written core table (see DECISIONS.md's
+// 2026-06-21 entry, which reverses the 2026-06-20 CMS-pivot framing) and
+// is read by the layout itself for the design-system token cascade.
+// `pages` is the one cadmus/cms collection Cadmea core ships, so this
+// page's own query is just the published-pages list.
 const publishedPages = await db(env.DB, { pages })
   .select()
   .from(pages)

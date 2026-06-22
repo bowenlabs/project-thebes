@@ -1,0 +1,54 @@
+/* Noir — near-black, high contrast, aubergine cast, hard edges. */
+[data-theme="theme-noir"] {
+  color-scheme: dark;
+
+  --color-base-100: oklch(14% 0.012 320);
+  --color-base-200: oklch(11% 0.012 320);
+  --color-base-300: oklch(8% 0.01 320);
+  --color-base-content: oklch(95% 0.006 320);
+
+  --color-primary: oklch(72% 0.18 330);
+  --color-primary-content: oklch(15% 0.02 330);
+
+  --color-secondary: oklch(60% 0.16 300);
+  --color-secondary-content: oklch(96% 0.01 300);
+
+  --color-accent: oklch(78% 0.17 340);
+  --color-accent-content: oklch(15% 0.02 340);
+
+  --color-neutral: oklch(20% 0.012 320);
+  --color-neutral-content: oklch(94% 0.006 320);
+
+  --color-info: oklch(72% 0.15 230);
+  --color-info-content: oklch(15% 0.04 230);
+  --color-success: oklch(68% 0.16 150);
+  --color-success-content: oklch(15% 0.05 150);
+  --color-warning: oklch(80% 0.18 75);
+  --color-warning-content: oklch(18% 0.05 75);
+  --color-error: oklch(65% 0.22 20);
+  --color-error-content: oklch(96% 0.01 20);
+
+  --radius-selector: 0.125rem;
+  --radius-field: 0.125rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+
+  /* Cadmea extension tokens */
+  --font-display-face: "Syne", system-ui, sans-serif;
+  --font-body-face: "DM Sans", system-ui, sans-serif;
+  --font-weight-display: 800;
+  --font-weight-body: 400;
+}
+
+/* Noir is dark by design — .dark/.light toggling is a no-op visually,
+   but the rule exists so the cascade never falls through to another
+   theme's dark-mode tokens. */
+[data-theme="theme-noir"].light {
+  --color-base-100: oklch(18% 0.012 320);
+  --color-base-200: oklch(14% 0.012 320);
+  --color-base-300: oklch(11% 0.01 320);
+}

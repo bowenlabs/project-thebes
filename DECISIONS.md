@@ -9,6 +9,101 @@
 
 ---
 
+## 2026-06-22 — Phase 4 (design system) complete
+
+**Decision:** Implemented all 12 milestones of issue #5 — six DaisyUI v5
+theme presets, the OKLCH color-scale/contrast/font-pairing primitives, the
+spacing/type token resolvers, the cross-Worker token cascade, and both
+live-preview mechanisms (public-site postMessage listener, Panel
+`BrandColorProvider`). See SECTION_1_PLAN.md's Phase 4 section for the
+per-milestone breakdown and `app/core/lib/design-system/README.md` for the
+ongoing reference doc (cascade architecture, token names, theme list).
+This was blocked behind issue #16 (`@bowenlabs/cadmus/cms`); unblocked once
+that closed.
+
+**Reference implementation, not a clean-room build:** a sibling project
+(internally referred to as "Louise" — Next.js/Payload, not part of this
+monorepo) had already built nearly this exact system. Its math
+(`color-scale.ts`'s OKLCH conversion, `contrast.ts`'s WCAG ratio, the
+spacing/type-token resolvers, the 4-layer cascade architecture) ported
+directly — zero framework dependency. Its actual CSS variable *names* did
+not: that project used a hand-rolled ~200-token namespace (`--navbar`,
+`--primary-50`...`--primary-950` as a fixed ramp), while Thebes uses
+DaisyUI v5's own fixed namespace. Confirmed against
+`node_modules/daisyui@5.5.23/theme/*.css` before writing any theme file —
+this is exactly the class of mistake the 2026-06-19 G12 entry below
+documents (DaisyUI v4 names silently doing nothing under v5). Theme preset
+names were renamed from the source project's branding (`louise` →
+`citadel`) to match Thebes' own naming.
+
+**Real naming collision found and fixed:** Cadmea's pre-existing dark-mode
+toggle (`ThemeToggle.tsx`, `__root.tsx`'s init script) already wrote
+`data-theme="light"`/`"dark"` to mean *mode*. This phase's convention
+(`data-theme="theme-{preset}"` for the *preset*, a separate `.dark` class
+for mode) collides with that — same attribute, two meanings, silently
+fighting each other. Fixed by making `BrandColorProvider` the sole writer
+of `data-theme`; the toggle now only ever touches the `dark`/`light` class.
+The now-unreachable `:root[data-theme="dark"]` CSS block in
+`app/workers/cadmea/src/styles.css` was rewritten as `:root.dark` so dark
+mode didn't silently stop working once the attribute write was removed.
+
+**`pickContentColor()` — not in the original plan:** DaisyUI v5 pairs
+every color role with a `-content` (text-on-color) token. The reference
+project always used a fixed `--primary-foreground: white`, safe only
+because its primary swatch's lightness was hand-tuned to stay dark.
+Generic brand-color input (any hex an owner picks) can't assume that, so
+`color-scale.ts` gained an OKLCH→sRGB inverse conversion and a real WCAG
+AA check (via `contrast.ts`) to choose black or white content text per
+generated swatch, rather than guessing.
+
+**Theme files are duplicated across both Workers, not shared:** Cloudflare
+Workers each have isolated static asset bindings — there's no mechanism in
+this stack to serve one Worker's `public/` files from another. The six
+theme CSS files exist in both `app/workers/site/public/themes/` and
+`app/workers/cadmea/public/themes/`, kept in sync manually (each file
+says so in a header comment). Revisit if a build step to copy them
+automatically becomes worth the investment.
+
+**Schema check before assuming a column was missing:** the original plan
+draft (mid-implementation) assumed `displayFontOverride`/`bodyFontOverride`
+columns existed on `site_settings`, since the reference project had them.
+They don't — neither CLAUDE.md's `site_settings` field table nor
+`core/db/schema.ts` defines them. Rather than add a migration for a
+feature not actually in scope, the per-field font-override feature was
+dropped from this phase; only `fontPairing` (which does exist) is wired
+up. Revisit if per-field font overrides are wanted later — needs a real
+migration, not just code assuming the column exists.
+
+**Scope boundary:** issue #5's milestones stop at "verify token cascade on
+a test page" (4.12). The Panel's actual design-settings *editing* UI
+(theme picker, brand-color picker, font-pairing picker, spacing/type
+editors, live-preview pane) was not built — it depends on
+`@bowenlabs/cadmea`'s `CollectionEdit` supporting more field types than
+`text`/`select`/`number`/`date` (a gap identified separately, not yet its
+own issue). `app/workers/site/src/pages/token-test.astro` was rewritten
+from a Phase-0 POC fixture into the real verification page for this
+phase, but it's a manual test page, not the settings UI.
+
+**Verified:** `pnpm build:cadmus`/`build:site`/`build:cadmea`, `pnpm lint`
+(Biome + the prerender check — `__root.tsx`'s new `loader` reading
+`site_settings` via a server function required adding
+`export const prerender = false`, the same rule `admin/route.tsx` already
+follows). Confirmed via live `wrangler dev` + curl that the built CSS's
+`.bg-primary` rule resolves to `var(--color-primary)` and that
+`public/themes/theme-{name}.css` serves correctly for all six presets —
+the same check that would have caught the 2026-06-19 G12 incident had it
+recurred. Did not get a real browser screenshot (Chrome extension wasn't
+connected in this session) — the curl-based check above substitutes for
+the substantive risk (CSS variable names actually wiring up) but isn't a
+full visual confirmation.
+
+**Revisit if:** the Panel settings-editing UI work starts — at that point
+`CollectionEdit`'s field-type gap (richText/checkbox/relationship/array/
+upload all currently render nothing) needs addressing first, and the
+per-field font-override question above should be revisited.
+
+---
+
 ## 2026-06-22 — `@bowenlabs/cadmea` gets a real build + a TanStack Start mounting helper
 
 **Decision:** Closes the two gaps flagged when the package was first

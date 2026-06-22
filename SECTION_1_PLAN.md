@@ -1600,7 +1600,7 @@ That all comes in Phase 2+.
 
 **Operator config and public assets:**
 - [x] **1.29** `citadel.config.ts` exists at repo root
-- [x] **1.30** `workers/site/public/themes/` exists (already has a `theme-test.css`, fine for Phase 1)
+- [x] **1.30** `workers/site/public/themes/` exists (had a placeholder `theme-test.css` for Phase 1; superseded and removed in Phase 4 once the six real theme files landed)
 - [x] **1.31** `workers/site/public/custom/` created 2026-06-21 with `.gitkeep` (plan text says `public/apps/citadel/custom/`, a doubled-path slip from the doc's path-prefix convention — the correct path is simply `public/custom/`, mirroring `apps/citadel/custom/`)
 
 **Root tooling and scripts:**
@@ -1834,45 +1834,85 @@ site and Panel. Live preview iframe reflects token changes via postMessage.
 
 ### Milestones
 
-- [ ] **4.1** Create six DaisyUI custom theme files in `public/themes/`:
+All 12 milestones complete (2026-06-22) — see DECISIONS.md's Phase 4 entry
+for implementation deviations from the plan below (paths use the current
+`app/` naming, not the `apps/citadel/` naming this section was written
+under; a few files were combined or renamed).
+
+- [x] **4.1** Create six DaisyUI custom theme files in `public/themes/`:
   - `theme-citadel.css`, `theme-noir.css`, `theme-adobe.css`
   - `theme-flint.css`, `theme-sage.css`, `theme-blank-canvas.css`
   - Each defines DaisyUI token overrides in OKLCH for that theme's palette
-- [ ] **4.2** Port `apps/citadel/core/lib/color-scale.ts` from v1 — generates 11-stop OKLCH scale from hex
-- [ ] **4.3** Port `apps/citadel/core/lib/contrast.ts` from v1 — WCAG AA ratio checker
-- [ ] **4.4** Port `apps/citadel/core/lib/font-pairing.ts` from v1 — 7 pairings + `buildFontUrl()`
-- [ ] **4.5** Create `apps/citadel/core/lib/design-system/`:
+  - Duplicated into both `app/workers/site/public/themes/` and
+    `app/workers/cadmea/public/themes/` — Cloudflare Workers don't share
+    static assets, so the Panel needs its own copy
+- [x] **4.2** Port `apps/citadel/core/lib/color-scale.ts` from v1 — generates 11-stop OKLCH scale from hex
+  - Now at `app/core/lib/color-scale.ts`; also adds `pickContentColor()`
+    (not in the original plan) — DaisyUI v5 needs a real `-content` color
+    per role, chosen via an honest WCAG check, not a fixed white/black guess
+- [x] **4.3** Port `apps/citadel/core/lib/contrast.ts` from v1 — WCAG AA ratio checker
+  - Now at `app/core/lib/contrast.ts`
+- [x] **4.4** Port `apps/citadel/core/lib/font-pairing.ts` from v1 — 7 pairings + `buildFontUrl()`
+  - Now at `app/core/lib/font-pairing.ts`
+- [x] **4.5** Create `apps/citadel/core/lib/design-system/`:
   - `theme-presets.ts` — `ThemePreset` type + `THEME_PRESET_LIST`
   - `spacing-presets.ts` — Compact / Balanced / Airy token values
   - `type-defaults.ts` — default type scale token values
-  - `resolve-spacing-tokens.ts` — merges preset with SiteSettings overrides
-  - `resolve-type-tokens.ts` — merges defaults with SiteSettings `typeTokens`
-  - `build-token-style.ts` — produces `<style>` tag content string from resolved tokens
-- [ ] **4.6** Create `apps/citadel/core/lib/image-service.ts` — `ImageService` interface + `defaultImageService` (R2 direct, no transform)
-- [ ] **4.7** Update `apps/citadel/workers/site/src/layouts/Layout.astro` (root Astro layout):
-  - Set `data-theme="{theme}"` on `<html>`
+  - `resolve-spacing-tokens.ts` — merges preset with SiteSettings overrides,
+    also exports `resolveTypeTokens`/`buildSpacingTokenStyles` (no separate
+    `resolve-type-tokens.ts` file — kept the type-token resolver alongside
+    the spacing one since both feed the same `<style>` builder)
+  - `build-token-style.ts` — produces `<style>` tag content string from
+    resolved tokens; this is the single shared cascade implementation
+    called from the Astro layout, `BrandColorProvider`, and the preview
+    listener
+  - Now at `app/core/lib/design-system/`
+- [x] **4.6** Create `apps/citadel/core/lib/image-service.ts` — `ImageService` interface + `defaultImageService` (R2 direct, no transform)
+  - Already existed before this phase, at `app/core/lib/image-service.ts`
+    as `createR2ImageService`
+- [x] **4.7** Update root Astro layout (`app/workers/site/src/layouts/layout.astro`):
+  - Set `data-theme="theme-{name}"` on `<html>`
   - Set `.dark` class if `darkMode` is true
   - Load theme CSS: `<link href="/themes/theme-{name}.css">`
-- [ ] **4.8** Create `apps/citadel/workers/site/src/pages/layout.tsx` (site layout):
-  - Fetch `site_settings` from D1
+- [x] **4.8** Site layout responsibilities folded into the same
+  `layout.astro` (Astro has no nested route-group layouts the way Next
+  does, so root + site layout are one file here):
+  - Fetch `site_settings` from D1 via `getSiteSettings()`
   - Resolve font pairing → inject `<link>` for Cloudflare Fonts
-  - Call `generateColorScale(brandColor)` → inject primary/secondary/tertiary OKLCH overrides
-  - Call `buildTokenStyle(spacing, type, structural)` → inject `<style>` tag
-  - Mount `<PreviewTokenListener>` (activates only on `?preview=1`)
+  - Call `buildTokenStyle()` → inject primary/secondary/tertiary OKLCH
+    overrides + spacing/type `<style>` tag
+  - Mount the preview listener (see 4.9 — a script, not a component)
   - Inject CF Web Analytics if `CF_ANALYTICS_TOKEN` set
-- [ ] **4.9** Create `<PreviewTokenListener>` client component:
+- [x] **4.9** Create the live-preview listener:
+  - Public site has no React/Solid client framework wired up (Astro +
+    server-rendered HTML only, per CLAUDE.md's stack), so this is a plain
+    bundled `<script>` module (`app/workers/site/src/scripts/preview-token-listener.ts`),
+    not a `<PreviewTokenListener>` component
   - Mounts only if `?preview=1` in URL
-  - Listens for `postMessage` of type `louise:token-update`
+  - Listens for `postMessage` of type `cadmea:token-update` (renamed from
+    `louise:token-update` — "louise" was the prior-art reference project's
+    name, not Thebes')
   - Validates `event.origin === window.location.origin`
   - Applies token overrides to `document.documentElement` style
-- [ ] **4.10** Create `<BrandColorProvider>` client component for Panel:
-  - Sets `data-theme`, loads theme CSS, injects overrides on mount and on `louise:panel-preview` events
-  - Used in Panel layout to keep Panel UI in sync with owner's active theme
-- [ ] **4.11** Create `apps/citadel/workers/site/src/assets/app.css`:
-  - Tailwind v4 `@import`
-  - `@theme inline` block mapping DaisyUI token names to Tailwind utilities
-  - `prose-site` class mapping `--tw-prose-*` to DaisyUI tokens
-- [ ] **4.12** Verify token cascade — create a test page that renders all theme presets and confirms OKLCH overrides apply correctly (G12)
+- [x] **4.10** Create `<BrandColorProvider>` SolidJS client component for the Panel (`app/workers/cadmea/src/components/BrandColorProvider.tsx`):
+  - Sets `data-theme`, loads theme CSS, injects overrides via `createEffect`
+  - Mounted in `__root.tsx`, fed by a `getCadmeaSiteSettings` server
+    function called from root's own `loader` (not behind auth — the Panel
+    chrome needs a theme even on the pre-auth redirect path)
+- [x] **4.11** Create the Tailwind bridge in `app/workers/site/src/assets/app.css`
+  (and mirrored in `app/workers/cadmea/src/styles.css` for the Panel):
+  - Tailwind v4 `@import` (already present pre-Phase-4)
+  - `@theme inline` block — only for Cadmea's own extension tokens (font,
+    spacing, type scale); DaisyUI v5 generates its own `--color-*`
+    utilities natively, no bridge needed for those
+  - `prose-site` class mapping `--tw-prose-*` to DaisyUI v5 token names
+- [x] **4.12** Verify token cascade — repurposed the existing
+  `token-test.astro` POC fixture (which only tested basic token injection
+  pre-cascade) into the real verification page: all six themes, dark-mode
+  toggle, brand-color override, and a `?preview=1` postMessage round-trip.
+  Confirmed via built CSS output that `.bg-primary` resolves to
+  `var(--color-primary)` — the same check that caught the DaisyUI v4/v5
+  name mismatch in the original G12 incident (see DECISIONS.md 2026-06-19).
 
 ### Gotchas
 - G12 (OKLCH override order — `<style>` must come after `<link>` in `<head>`)

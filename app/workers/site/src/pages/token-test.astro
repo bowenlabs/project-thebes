@@ -1,18 +1,88 @@
 ---
+// Phase 4 design-system verification page (issue #5, milestone 4.12).
+// Supersedes the old POC 2 fixture that lived at this path (which proved
+// basic token injection worked, pre-cascade) — see DECISIONS.md's
+// 2026-06-19 entry on confirming DaisyUI v5's real variable names. This
+// page proves the full cascade: theme switching, dark mode, brand-color
+// override, and the live-preview postMessage round-trip.
+import { THEME_PRESET_LIST } from "@core/lib/design-system/theme-presets";
 import "../assets/app.css";
-
-const tokenStyle = `:root[data-theme="test"] { --color-primary: oklch(42% 0.12 145); }`;
 ---
 
-<html data-theme="test">
+<html lang="en" data-theme="theme-citadel">
 <head>
-    <link rel="stylesheet" href="/themes/theme-test.css" />
-    <!-- style tag MUST come after the link — source order wins -->
-    <style set:html={tokenStyle} />
+	<meta charset="utf-8" />
+	<title>Design system test</title>
+	<link id="active-theme-css" rel="stylesheet" href={`/themes/theme-${THEME_PRESET_LIST[0]}.css`} />
 </head>
-<body>
-<div class="bg-primary text-primary-content p-8">
-    If dark green: token injection working
-</div>
+<body class="bg-base-100 text-base-content p-8">
+	<div class="flex flex-col gap-6 max-w-3xl mx-auto">
+		<h1 class="text-3xl font-bold">Design system test</h1>
+
+		<section class="flex flex-wrap gap-2">
+			{THEME_PRESET_LIST.map((name) => (
+				<button type="button" class="btn btn-sm" data-theme-button={name}>
+					{name}
+				</button>
+			))}
+			<button type="button" class="btn btn-sm btn-outline" data-dark-toggle>
+				Toggle dark
+			</button>
+		</section>
+
+		<section class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+			<div class="rounded-box bg-primary text-primary-content p-4">primary</div>
+			<div class="rounded-box bg-secondary text-secondary-content p-4">secondary</div>
+			<div class="rounded-box bg-accent text-accent-content p-4">accent</div>
+			<div class="rounded-box bg-neutral text-neutral-content p-4">neutral</div>
+			<div class="rounded-box bg-base-200 text-base-content p-4 border border-base-300">base-200</div>
+			<div class="rounded-box bg-info text-info-content p-4">info</div>
+			<div class="rounded-box bg-success text-success-content p-4">success</div>
+			<div class="rounded-box bg-warning text-warning-content p-4">warning</div>
+			<div class="rounded-box bg-error text-error-content p-4">error</div>
+		</section>
+
+		<section class="flex flex-col gap-2">
+			<h2 class="text-xl font-display">Brand color override (?preview=1 + postMessage)</h2>
+			<p class="text-sm opacity-70">
+				Append <code>?preview=1</code> to this page's URL, then run in the console:
+			</p>
+			<pre class="bg-base-200 p-3 rounded-box overflow-x-auto text-xs">window.postMessage(&#123; type: 'cadmea:token-update', payload: &#123; theme: 'theme-citadel', brandColor: '#16a34a' &#125; &#125;, location.origin)</pre>
+		</section>
+
+		<p id="contrast-report" class="text-sm font-mono"></p>
+	</div>
+
+	<script>
+		import { mountPreviewTokenListener } from "../scripts/preview-token-listener";
+
+		mountPreviewTokenListener();
+
+		for (const button of document.querySelectorAll<HTMLButtonElement>("[data-theme-button]")) {
+			button.addEventListener("click", () => {
+				const name = button.dataset.themeButton;
+				document.documentElement.setAttribute("data-theme", `theme-${name}`);
+				const link = document.getElementById("active-theme-css") as HTMLLinkElement;
+				link.href = `/themes/theme-${name}.css`;
+			});
+		}
+
+		document.querySelector("[data-dark-toggle]")?.addEventListener("click", () => {
+			document.documentElement.classList.toggle("dark");
+		});
+
+		// Surfaces the resolved --color-primary / --color-primary-content
+		// pair as text so the AA pairing pickContentColor chose (in
+		// build-token-style.ts, via contrast.ts) is visible, not just
+		// inferred from how the swatch above looks.
+		function reportContrast() {
+			const styles = getComputedStyle(document.documentElement);
+			const report = document.getElementById("contrast-report");
+			if (!report) return;
+			report.textContent = `--color-primary: ${styles.getPropertyValue("--color-primary").trim()} / --color-primary-content: ${styles.getPropertyValue("--color-primary-content").trim()}`;
+		}
+		reportContrast();
+		document.addEventListener("click", () => setTimeout(reportContrast, 50));
+	</script>
 </body>
 </html>
