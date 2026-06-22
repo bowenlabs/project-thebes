@@ -98,7 +98,9 @@ const renderedLogo = settings?.logoUrl
 				activePath={Astro.url.pathname}
 			/>
 		)}
-		<slot />
+		<main>
+			<slot />
+		</main>
 		{showChrome && (
 			<SiteFooter
 				siteName={settings?.siteName ?? "Thebes"}

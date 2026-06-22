@@ -109,6 +109,29 @@ shipping. Cookie scoping on `*.workers.dev` differs from production.
 
 ---
 
+## Worker bundle size
+
+Cloudflare Workers (Paid plan) cap the deployed script at 10MB compressed.
+Check both Workers before a release with a dry-run deploy (no actual
+deploy happens):
+
+```bash
+cd app/workers/site && npx wrangler deploy --dry-run --outdir /tmp/dry-site
+cd app/workers/cadmea && npx wrangler deploy --dry-run --outdir /tmp/dry-cadmea
+```
+
+Read the `Total Upload` line. As of 2026-06-22:
+
+| Worker | Upload size | Gzipped |
+|---|---|---|
+| `thebes-site` (Worker 1) | 996 KiB | 227.5 KiB |
+| `thebes-cadmea` (Worker 2) | 1.62 MiB | 392.2 KiB |
+
+Both are well under the 10MB limit — the TanStack Start Panel bundle is
+the one to watch as Section 2+ adds collections and admin-UI components.
+
+---
+
 ## Code style
 
 Biome handles formatting and linting:

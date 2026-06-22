@@ -1,0 +1,53 @@
+{
+	// Mirrors app/workers/site/wrangler.jsonc's bindings for integration
+	// tests — same D1/KV/R2/Email bindings, real migrations. Omits the
+	// "services" (CADMEA) binding: that's a different named Worker this
+	// test pool never starts, and these tests exercise CadmeaService's
+	// logic directly (see cms.test.ts) rather than over the RPC wire.
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "thebes-site-test",
+	"main": "../../app/workers/site/src/api.ts",
+	"compatibility_date": "2026-06-17",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "thebes-db",
+			"database_id": "b6255768-4511-4b62-8801-31090e74ae6f",
+			"migrations_dir": "../../app/core/db/migrations"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "d9d92dc6ea9640cba851eeafdd8c1408"
+		},
+		{
+			"binding": "SESSION",
+			"id": "719efd9d411d4594b3abe1491039efcb"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "R2",
+			"bucket_name": "thebes-media"
+		}
+	],
+	"images": {
+		"binding": "IMAGES"
+	},
+	"send_email": [
+		{
+			"name": "EMAIL"
+		}
+	],
+	"vars": {
+		"CADMEA_URL": "https://thebes-cadmea.baylee-c3e.workers.dev",
+		"SESSION_SECRET": "test-only-session-secret-not-for-production",
+		"ADMIN_EMAIL": "owner@example.com",
+		"MEDIA_URL": "http://localhost:8788"
+	}
+}

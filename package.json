@@ -2,6 +2,7 @@
   "name": "thebes",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "description": "Cadmus framework + Cadmea CMS, demoed by the Thebes app",
   "packageManager": "pnpm@11.8.0",
   "engines": {
@@ -30,11 +31,14 @@
     "test": "pnpm test:cadmus && pnpm test:cadmea-pkg && pnpm test:int && pnpm test:e2e",
     "test:cadmus": "pnpm --filter @bowenlabs/cadmus test",
     "test:cadmea-pkg": "pnpm --filter @bowenlabs/cadmea test",
-    "test:int": "vitest run tests/int",
+    "test:int": "vitest run --config tests/int/vitest.config.ts",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "latest",
     "@biomejs/biome": "latest",
+    "@cloudflare/vitest-pool-workers": "latest",
+    "@cloudflare/workers-types": "latest",
     "@playwright/test": "latest",
     "concurrently": "latest",
     "drizzle-kit": "latest",

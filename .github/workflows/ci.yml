@@ -89,3 +89,94 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:cadmus
+
+  test-cadmea-pkg:
+    name: Test Cadmea admin-UI components
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:cadmea-pkg
+
+  test-int:
+    name: Integration tests (real local D1/KV)
+    runs-on: ubuntu-latest
+    needs: build-cadmus
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # @bowenlabs/cadmus/db and /cms resolve against dist/ — see
+      # build-site's comment above for why this is needed in every job.
+      - run: pnpm build:cadmus
+      - run: pnpm test:int
+
+  test-e2e:
+    name: E2e + accessibility (Playwright + axe-core)
+    runs-on: ubuntu-latest
+    needs: build-site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:cadmus
+      - run: pnpm build:site
+      - run: npx playwright install --with-deps chromium
+      # playwright.config.ts's webServer already runs db:migrate + seed
+      # before starting `wrangler dev` — this just provides the
+      # .dev.vars those scripts and the dev server both read. The
+      # checked-in .dev.vars.example files ship with empty values (by
+      # design, so nobody copies a real secret in), so CI needs its own
+      # throwaway values rather than a blind copy.
+      - name: Provide local dev secrets
+        run: |
+          cat > app/workers/site/.dev.vars <<EOF
+          SESSION_SECRET=ci-only-session-secret-not-for-production
+          ADMIN_EMAIL=owner@example.com
+          MEDIA_URL=http://localhost:8788
+          CADMEA_URL=http://localhost:3001
+          EOF
+          cat > app/workers/cadmea/.dev.vars <<EOF
+          SESSION_SECRET=ci-only-session-secret-not-for-production
+          ADMIN_EMAIL=owner@example.com
+          MEDIA_URL=http://localhost:8788
+          SERVER_URL=http://localhost:3000
+          EOF
+      - run: pnpm test:e2e
+
+  bundle-size:
+    name: Worker bundle size check (10MB Workers Paid limit)
+    runs-on: ubuntu-latest
+    needs: [build-site, build-panel]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:cadmus
+      - run: pnpm build:cadmea-pkg
+      - run: pnpm build:site
+      - run: pnpm build:cadmea
+      - name: Check thebes-site upload size
+        working-directory: app/workers/site
+        run: npx wrangler deploy --dry-run --outdir /tmp/dry-site
+      - name: Check thebes-cadmea upload size
+        working-directory: app/workers/cadmea
+        run: npx wrangler deploy --dry-run --outdir /tmp/dry-cadmea

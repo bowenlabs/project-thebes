@@ -9,7 +9,7 @@ const error = Astro.url.searchParams.get("error");
 ---
 
 <Layout title="Log in — Thebes" showChrome={false}>
-	<main class="flex min-h-screen flex-col items-center justify-center px-[var(--spacing-container-x)]">
+	<div class="flex min-h-screen flex-col items-center justify-center px-[var(--spacing-container-x)]">
 		<div class="card w-full max-w-sm bg-base-100 shadow-lg">
 			<div class="card-body gap-4">
 				<h1 class="font-display text-2xl font-semibold">Log in</h1>
@@ -27,7 +27,10 @@ const error = Astro.url.searchParams.get("error");
 
 				<form id="magic-link-form" class="flex flex-col gap-3">
 					<label for="email" class="label">
-						<span class="label-text">Email</span>
+						<!-- DaisyUI's default .label-text muted color failed WCAG AA
+						     contrast (4.47:1 vs base-100, axe flagged it) — text-base-content
+						     overrides it to the theme's full-contrast foreground color. -->
+						<span class="label-text text-base-content">Email</span>
 					</label>
 					<input
 						id="email"
@@ -49,7 +52,7 @@ const error = Astro.url.searchParams.get("error");
 				</p>
 			</div>
 		</div>
-	</main>
+	</div>
 
 	<script>
 		const form = document.getElementById("magic-link-form") as HTMLFormElement;
