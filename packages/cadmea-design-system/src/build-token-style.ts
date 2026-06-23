@@ -3,8 +3,8 @@
 // Cadmea's BrandColorProvider, and the PreviewTokenListener script) so the
 // override logic exists exactly once instead of being copy-pasted three
 // times the way Louise's prior-art version was.
-import { generateColorScale, pickContentColor } from "../color-scale.js";
-import { getFontConfig } from "../font-pairing.js";
+import { generateColorScale, pickContentColor } from "./color-scale.js";
+import { getFontConfig } from "./font-pairing.js";
 import {
   buildSpacingTokenStyles,
   resolveSpacingTokens,

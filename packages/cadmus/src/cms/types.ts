@@ -158,6 +158,25 @@ export interface CollectionConfig {
   hooks?: CollectionHooks;
 }
 
+/**
+ * A Cadmea plugin — a synchronous transform over the whole CMS config,
+ * modeled on Payload's `plugins: [(config) => config]` shape. A plugin may
+ * add or modify collections, inject fields, or register lifecycle hooks.
+ * `defineCmsConfig` runs plugins in array order, each receiving the output
+ * of the previous one, *before* validation — so a plugin's output is held
+ * to the same rules as a hand-written config.
+ *
+ * Synchronous in Section 2 by design: the resolved config is consumed by
+ * schema codegen and runtime config loading, both of which are sync. An
+ * async variant is a deliberate later extension, not an oversight.
+ */
+export type CadmeaPlugin = (config: CmsConfig) => CmsConfig;
+
 export interface CmsConfig {
   collections: CollectionConfig[];
+  /**
+   * Config transforms run in order by `defineCmsConfig` before validation.
+   * See {@link CadmeaPlugin}. Omit for a plain, plugin-free config.
+   */
+  plugins?: CadmeaPlugin[];
 }

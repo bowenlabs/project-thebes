@@ -1,7 +1,7 @@
 import {
   SPACING_PRESETS,
   type SpacingPreset,
-} from "@core/lib/design-system/spacing-presets";
+} from "@bowenlabs/cadmea-design-system";
 import { For, type JSX } from "solid-js";
 
 export interface SpacingTabProps {

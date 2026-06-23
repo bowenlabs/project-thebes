@@ -13,4 +13,7 @@ export const pages = sqliteTable("pages", {
     () => new Date(),
   ),
   blocks: text("blocks", { mode: "json" }),
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  ogImage: text("og_image"),
 });

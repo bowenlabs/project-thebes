@@ -2,7 +2,7 @@
 import { env } from "cloudflare:workers";
 import type { Block } from "@core/lib/blocks";
 import { renderRichText } from "@core/lib/blocks";
-import { createR2ImageService } from "@core/lib/image-service";
+import { createImageService } from "@core/lib/image-service";
 
 interface Props {
   blocks: Block[];
@@ -12,7 +12,7 @@ const { blocks } = Astro.props;
 // Never read block.url directly — always through ImageService.render(),
 // so swapping in a Cloudflare Images extension later (Section 3+) needs
 // no change here. render() is a pass-through today (see image-service.ts).
-const imageService = createR2ImageService(env.R2, env.MEDIA_URL);
+const imageService = createImageService(env.R2, env.MEDIA_URL);
 ---
 
 {

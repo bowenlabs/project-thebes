@@ -1,4 +1,4 @@
-import type { TokenStyleInput } from "@core/lib/design-system/build-token-style";
+import type { TokenStyleInput } from "@bowenlabs/cadmea-design-system";
 import {
   createContext,
   createSignal,

@@ -1,5 +1,8 @@
-import { generateColorScale } from "@core/lib/color-scale";
-import { contrastRatio, passesAA } from "@core/lib/contrast";
+import {
+  contrastRatio,
+  generateColorScale,
+  passesAA,
+} from "@bowenlabs/cadmea-design-system";
 import { For, type JSX, Show } from "solid-js";
 
 export interface ColorsTabValues {

@@ -101,6 +101,21 @@ thebes/
 │       ├── package.json         ← name: "@bowenlabs/cadmea"; exports map
 │       │                          auto-written by tsup-preset-solid
 │       └── README.md
+│   │
+│   ├── cadmea-design-system/    ← @bowenlabs/cadmea-design-system — the
+│   │                              design-token engine (standalone library,
+│   │                              not a plugin/adapter): buildTokenStyle +
+│   │                              color/spacing/type/font helpers, shared by
+│   │                              both Workers. Extracted from app/core/lib.
+│   │
+│   ├── cadmea-plugin-seo/       ← @bowenlabs/cadmea-plugin-seo — SEO plugin
+│   │                              (Cadmea axis: plugin(config) => config;
+│   │                              injects meta/OG fields + a metaTitle hook,
+│   │                              ships renderSeoTags() for the public site)
+│   │
+│   └── cadmus-cloudflare-images/ ← @bowenlabs/cadmus-cloudflare-images — image
+│                                  adapter (Cadmus axis: an alternate
+│                                  ImageService returning /cdn-cgi/image URLs)
 │
 ├── app/                          ← Thebes — the one reference app
 │   ├── workers/
@@ -153,6 +168,33 @@ that config — no coding required after the initial deploy.
 Code in `packages/cadmus/` must not contain anything Cadmea-specific.
 Code in `app/core/` is Cadmea-specific and imports from `@bowenlabs/cadmus`.
 Never let this boundary blur.
+
+---
+
+## Extension axes (Section 2+)
+
+Features break out along **two axes** — keep them distinct, it's the same
+framework/CMS boundary as above. Full guide: **`EXTENDING.md`**.
+
+- **Cadmus adapters** (`@bowenlabs/cadmus-*`) — a swappable *implementation* of
+  an interface Cadmus defines (e.g. `ImageService`). Framework-level. The app
+  resolves the active implementation in one place (`app/core/lib/image-service.ts`'s
+  `createImageService`) so swapping is a one-liner. Reference:
+  `@bowenlabs/cadmus-cloudflare-images`.
+- **Cadmea plugins** (`@bowenlabs/cadmea-plugin-*`) — a synchronous
+  `(config) => config` transform (Payload-shaped) run by `defineCmsConfig`
+  before validation. Injects fields/collections/hooks. Reference:
+  `@bowenlabs/cadmea-plugin-seo`. **Consumers must read the resolved config
+  (post-plugin), never the raw definition** — see `app/cadmea.config.ts`.
+
+Collection `hooks` are enforced by `createLocalApi`; `access` is still reserved
+(not enforced). Community extensions on either axis live under
+`@cadmus-community/*`.
+
+Shared code that is **neither** axis (no CMS config, no Cadmus interface) ships
+as a plain library, not an extension — e.g. `@bowenlabs/cadmea-design-system`,
+the framework-agnostic design-token engine extracted from `app/core/lib`. Don't
+force a library onto an axis.
 
 ---
 

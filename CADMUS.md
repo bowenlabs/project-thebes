@@ -157,12 +157,14 @@ packages/cadmus/
 │   │   └── README.md
 │   │
 │   ├── cms/
-│   │   ├── index.ts         ← defineCollection / defineCmsConfig
-│   │   ├── fields.ts        ← field-type definitions (text, richText, relationship, upload, etc.)
-│   │   ├── schema-gen.ts    ← collection config → generated Drizzle schema
-│   │   ├── query.ts         ← Local API (find / findByID / create / update / delete)
-│   │   ├── meta.ts          ← getCollectionsMeta() admin-UI introspection contract
-│   │   └── README.md
+│   │   ├── index.ts            ← re-exports the cms surface
+│   │   ├── types.ts            ← field-type definitions, CollectionConfig, CmsConfig, CadmeaPlugin, hooks
+│   │   ├── defineCollection.ts ← defineCollection / defineCmsConfig (runs plugins)
+│   │   ├── schema-gen.ts       ← collection config → generated Drizzle schema source
+│   │   ├── codegen.ts          ← collectionToTable (runtime Drizzle table from config)
+│   │   ├── localApi.ts         ← Local API (find / findByID / create / update / deleteByID); enforces hooks
+│   │   ├── meta.ts             ← getCollectionsMeta() admin-UI introspection contract
+│   │   └── README.md           ← cms engine docs (collections, plugins, hooks, Local API)
 │   │
 │   ├── storage/
 │   │   ├── index.ts         ← ImageService interface, R2 upload/serve helper
@@ -595,6 +597,22 @@ environment. It requires a `wrangler.test.jsonc` with test bindings
 (local D1, local KV, local R2). Never use production binding IDs in tests.
 Keep a `wrangler.test.jsonc` in `packages/cadmus/` with `[[d1_databases]]`,
 `[[kv_namespaces]]` etc. set to local-only values.
+
+---
+
+## Adapters — swappable implementations
+
+Some Cadmus primitives are defined as *interfaces* with their implementation
+living outside core, so an app can swap backends without touching call sites.
+`ImageService` (`@bowenlabs/cadmus/storage`) is the first: the default is a
+plain R2 pass-through, and `@bowenlabs/cadmus-cloudflare-images` is an alternate
+adapter that returns Cloudflare Image Resizing URLs.
+
+An adapter implements the interface and is published as `@bowenlabs/cadmus-*`
+(first-party) or `@cadmus-community/*`. The contract that makes the swap a
+one-liner: the app resolves the active implementation in a single place. This is
+one of Thebes's two extension axes — the other is Cadmea plugins. See the full
+guide in **[EXTENDING.md](./EXTENDING.md)**.
 
 ---
 

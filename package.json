@@ -15,9 +15,13 @@
     "dev": "concurrently \"pnpm dev:site\" \"pnpm dev:cadmea\"",
     "build:cadmus": "cd packages/cadmus && pnpm build",
     "build:cadmea-pkg": "cd packages/cadmea && pnpm build",
+    "build:design-system": "cd packages/cadmea-design-system && pnpm build",
+    "build:plugin-seo": "cd packages/cadmea-plugin-seo && pnpm build",
+    "build:cf-images": "cd packages/cadmus-cloudflare-images && pnpm build",
+    "build:packages": "pnpm build:cadmus && pnpm build:cadmea-pkg && pnpm build:design-system && pnpm build:plugin-seo && pnpm build:cf-images",
     "build:site": "cd app/workers/site && pnpm build",
     "build:cadmea": "cd app/workers/cadmea && pnpm build",
-    "build": "pnpm build:cadmus && pnpm build:cadmea-pkg && pnpm build:site && pnpm build:cadmea",
+    "build": "pnpm build:packages && pnpm build:site && pnpm build:cadmea",
     "deploy:site": "cd app/workers/site && wrangler deploy",
     "deploy:cadmea": "cd app/workers/cadmea && wrangler deploy",
     "deploy": "pnpm build && pnpm deploy:site && pnpm deploy:cadmea",
@@ -28,15 +32,22 @@
     "seed": "tsx app/seed.ts",
     "lint": "biome check . && tsx app/scripts/check-prerender.ts",
     "format": "biome format --write .",
-    "test": "pnpm test:cadmus && pnpm test:cadmea-pkg && pnpm test:int && pnpm test:e2e",
+    "test": "pnpm test:cadmus && pnpm test:cadmea-pkg && pnpm test:design-system && pnpm test:plugin-seo && pnpm test:cf-images && pnpm test:int && pnpm test:e2e",
     "test:cadmus": "pnpm --filter @bowenlabs/cadmus test",
     "test:cadmea-pkg": "pnpm --filter @bowenlabs/cadmea test",
+    "test:design-system": "pnpm --filter @bowenlabs/cadmea-design-system test",
+    "test:plugin-seo": "pnpm --filter @bowenlabs/cadmea-plugin-seo test",
+    "test:cf-images": "pnpm --filter @bowenlabs/cadmus-cloudflare-images test",
     "test:int": "vitest run --config tests/int/vitest.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build:packages && changeset publish"
   },
   "devDependencies": {
     "@axe-core/playwright": "latest",
     "@biomejs/biome": "latest",
+    "@changesets/cli": "latest",
     "@cloudflare/vitest-pool-workers": "latest",
     "@cloudflare/workers-types": "latest",
     "@playwright/test": "latest",
@@ -47,6 +58,7 @@
     "wrangler": "latest"
   },
   "dependencies": {
+    "@bowenlabs/cadmea-plugin-seo": "workspace:*",
     "@bowenlabs/cadmus": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "solid-js": "^1.9.13"

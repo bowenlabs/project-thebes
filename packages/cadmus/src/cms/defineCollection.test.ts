@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CadmusCmsError } from "../errors.js";
 import { defineCmsConfig, defineCollection } from "./defineCollection.js";
-import type { CollectionConfig } from "./types.js";
+import type { CadmeaPlugin, CollectionConfig } from "./types.js";
 
 const pagesCollection: CollectionConfig = {
   slug: "pages",
@@ -88,5 +88,62 @@ describe("defineCmsConfig", () => {
         collections: [pagesCollection, pagesCollection],
       }),
     ).toThrow(CadmusCmsError);
+  });
+});
+
+describe("defineCmsConfig plugins", () => {
+  it("runs a plugin that injects a field, without mutating the input", () => {
+    const addField: CadmeaPlugin = (config) => ({
+      ...config,
+      collections: config.collections.map((c) => ({
+        ...c,
+        fields: { ...c.fields, injected: { type: "text" } },
+      })),
+    });
+
+    const resolved = defineCmsConfig({
+      collections: [pagesCollection],
+      plugins: [addField],
+    });
+
+    expect(resolved.collections[0]?.fields.injected).toEqual({ type: "text" });
+    // the original fixture is untouched — plugins return new objects
+    expect(pagesCollection.fields).not.toHaveProperty("injected");
+  });
+
+  it("runs plugins in array order, each fed the previous one's output", () => {
+    const order: string[] = [];
+    const a: CadmeaPlugin = (c) => {
+      order.push("a");
+      return c;
+    };
+    const b: CadmeaPlugin = (c) => {
+      order.push("b");
+      return c;
+    };
+
+    defineCmsConfig({ collections: [pagesCollection], plugins: [a, b] });
+    expect(order).toEqual(["a", "b"]);
+  });
+
+  it("validates the resolved config, not the input — a plugin that emits a duplicate slug throws", () => {
+    const duplicate: CadmeaPlugin = (config) => ({
+      ...config,
+      collections: [
+        ...config.collections,
+        // biome-ignore lint/style/noNonNullAssertion: fixture always has [0]
+        { ...config.collections[0]!, slug: "pages" },
+      ],
+    });
+
+    // the input is a single valid collection; only the plugin's output is invalid
+    expect(() =>
+      defineCmsConfig({ collections: [pagesCollection], plugins: [duplicate] }),
+    ).toThrow(CadmusCmsError);
+  });
+
+  it("returns the input by reference when no plugins are configured", () => {
+    const config = { collections: [pagesCollection] };
+    expect(defineCmsConfig(config)).toBe(config);
   });
 });

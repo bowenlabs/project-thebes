@@ -84,9 +84,72 @@ function notFound(config: CollectionConfig, id: number): never {
   throw new CadmusCmsError(`No "${config.slug}" document found with id ${id}`);
 }
 
-// Note: config.access and config.hooks (issue #16 step 7) are reserved
-// types only — intentionally never read here. No access check or hook
-// runs on any operation below.
+// Hook runners. `config.hooks` (CollectionHooks) is folded into every
+// write/read below. Transforming hooks (beforeChange, beforeRead,
+// afterRead) run in array order, each fed the previous one's output; side-
+// effect hooks (afterChange, beforeDelete, afterDelete) run in order for
+// their effects only. All may be async. `config.access` stays reserved and
+// deliberately unread — access enforcement is still deferred.
+type AnyRecord = Record<string, unknown>;
+
+async function runBeforeChange(
+  config: CollectionConfig,
+  data: AnyRecord,
+): Promise<AnyRecord> {
+  let result = data;
+  for (const hook of config.hooks?.beforeChange ?? []) {
+    result = (await hook({ data: result })) as AnyRecord;
+  }
+  return result;
+}
+
+async function runAfterChange(
+  config: CollectionConfig,
+  doc: AnyRecord,
+): Promise<void> {
+  for (const hook of config.hooks?.afterChange ?? []) {
+    await hook({ doc });
+  }
+}
+
+async function runReadHooks(
+  config: CollectionConfig,
+  doc: AnyRecord,
+): Promise<AnyRecord> {
+  let result = doc;
+  for (const hook of config.hooks?.beforeRead ?? []) {
+    result = (await hook({ doc: result })) as AnyRecord;
+  }
+  for (const hook of config.hooks?.afterRead ?? []) {
+    result = (await hook({ doc: result })) as AnyRecord;
+  }
+  return result;
+}
+
+function hasReadHooks(config: CollectionConfig): boolean {
+  return Boolean(
+    config.hooks?.beforeRead?.length || config.hooks?.afterRead?.length,
+  );
+}
+
+async function runBeforeDelete(
+  config: CollectionConfig,
+  id: number,
+): Promise<void> {
+  for (const hook of config.hooks?.beforeDelete ?? []) {
+    await hook({ id });
+  }
+}
+
+async function runAfterDelete(
+  config: CollectionConfig,
+  id: number,
+): Promise<void> {
+  for (const hook of config.hooks?.afterDelete ?? []) {
+    await hook({ id });
+  }
+}
+
 export function createLocalApi<TTable extends AnyTable>(
   db: BaseSQLiteDatabase<"async", unknown>,
   table: TTable,
@@ -105,51 +168,78 @@ export function createLocalApi<TTable extends AnyTable>(
       const rows = options?.where
         ? await query.where(options.where)
         : await query;
-      return rows as InferSelectModel<TTable>[];
+      if (!hasReadHooks(config)) return rows as InferSelectModel<TTable>[];
+      const hooked = await Promise.all(
+        rows.map((row) => runReadHooks(config, row as Record<string, unknown>)),
+      );
+      return hooked as InferSelectModel<TTable>[];
     },
 
     async findByID(id) {
       const [row] = await db.select().from(table).where(eq(idColumn, id));
       if (!row) notFound(config, id);
-      return row as InferSelectModel<TTable>;
+      if (!hasReadHooks(config)) return row as InferSelectModel<TTable>;
+      return (await runReadHooks(
+        config,
+        row as Record<string, unknown>,
+      )) as InferSelectModel<TTable>;
     },
 
     async create(input) {
-      const record = input as Record<string, unknown>;
-      validateRequiredFields(config, record);
-      rejectUnknownFields(config, record);
+      // beforeChange runs before validation so a hook may supply or default
+      // a required field (e.g. the SEO plugin defaulting metaTitle).
+      const data = await runBeforeChange(
+        config,
+        input as Record<string, unknown>,
+      );
+      validateRequiredFields(config, data);
+      rejectUnknownFields(config, data);
+      let doc: InferSelectModel<TTable> | undefined;
       try {
         const [row] = await db
           .insert(table)
           // biome-ignore lint/suspicious/noExplicitAny: TTable is an abstract generic here, so drizzle's column-mapped insert types can't narrow against it — InferInsertModel<TTable> already gives callers the real, concrete typing.
-          .values(input as any)
+          .values(data as any)
           .returning();
-        return row as InferSelectModel<TTable>;
+        doc = row as InferSelectModel<TTable>;
       } catch (error) {
         wrapWriteError(config, error);
       }
+      // wrapWriteError returns `never`, so reaching here means the insert
+      // succeeded and `doc` is set. afterChange runs outside the try so its
+      // side-effect errors aren't mis-reported as write failures.
+      await runAfterChange(config, doc as Record<string, unknown>);
+      return doc as InferSelectModel<TTable>;
     },
 
     async update(id, input) {
-      const record = input as Record<string, unknown>;
-      rejectUnknownFields(config, record);
+      const data = await runBeforeChange(
+        config,
+        input as Record<string, unknown>,
+      );
+      rejectUnknownFields(config, data);
+      let doc: InferSelectModel<TTable> | undefined;
       try {
         const [row] = await db
           .update(table)
           // biome-ignore lint/suspicious/noExplicitAny: see create() above
-          .set(input as any)
+          .set(data as any)
           .where(eq(idColumn, id))
           .returning();
         if (!row) notFound(config, id);
-        return row as InferSelectModel<TTable>;
+        doc = row as InferSelectModel<TTable>;
       } catch (error) {
         wrapWriteError(config, error);
       }
+      await runAfterChange(config, doc as Record<string, unknown>);
+      return doc as InferSelectModel<TTable>;
     },
 
     async deleteByID(id) {
+      await runBeforeDelete(config, id);
       const [row] = await db.delete(table).where(eq(idColumn, id)).returning();
       if (!row) notFound(config, id);
+      await runAfterDelete(config, id);
       return row as InferSelectModel<TTable>;
     },
   };

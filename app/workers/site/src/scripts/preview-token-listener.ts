@@ -5,7 +5,7 @@
 import {
   buildTokenStyle,
   type TokenStyleInput,
-} from "../../../../core/lib/design-system/build-token-style";
+} from "@bowenlabs/cadmea-design-system";
 
 export function mountPreviewTokenListener(): void {
   if (!new URLSearchParams(window.location.search).has("preview")) return;

@@ -1,7 +1,7 @@
 import {
   TYPE_DEFAULTS,
   type TypeTokens,
-} from "@core/lib/design-system/type-defaults";
+} from "@bowenlabs/cadmea-design-system";
 import { For, type JSX } from "solid-js";
 
 export interface TypographyTabProps {

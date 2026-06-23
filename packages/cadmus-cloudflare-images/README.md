@@ -1,0 +1,54 @@
+# @bowenlabs/cadmus-cloudflare-images
+
+A [Cadmus](https://github.com/bowenlabs/project-thebes) **adapter** — an
+alternate `ImageService` (from `@bowenlabs/cadmus/storage`) backed by
+[Cloudflare Image Resizing](https://developers.cloudflare.com/images/transform-images/).
+
+This is the *adapter* extension axis: a swappable implementation of an
+interface Cadmus already defines. Uploads still land in R2 and the database
+still stores the **original** R2 URL — only `render()` changes, returning
+responsive `/cdn-cgi/image/...` transform URLs instead of a pass-through `src`.
+
+```bash
+pnpm add @bowenlabs/cadmus-cloudflare-images
+```
+
+## Swap it in
+
+Because every call site resolves its image service through one selection point
+(e.g. `app/core/lib/image-service.ts`), switching is a one-line change — no
+component, renderer, or stored data changes:
+
+```ts
+import { createCloudflareImageService } from "@bowenlabs/cadmus-cloudflare-images";
+
+export function createImageService(bucket: R2Bucket, mediaUrl: string) {
+  return createCloudflareImageService({ bucket, mediaUrl });
+}
+```
+
+## API
+
+```ts
+createCloudflareImageService({
+  bucket,                // R2Bucket — where originals are uploaded
+  mediaUrl,              // public base URL for originals (R2 custom domain)
+  deliveryUrl,           // origin that serves /cdn-cgi/image (default: mediaUrl)
+  widths,                // srcset widths (default: 320…1920)
+  sizes,                 // sizes attribute (default: "100vw")
+  quality,               // 1–100 (default: 80)
+})
+```
+
+`render({ url, width?, height?, alt })` returns `{ src, srcset?, sizes? }`. With
+no explicit `width`/`height` it emits a full responsive `srcset`; a fixed
+`width`/`height` pins a single rendition (no `srcset`). `upload(file)` validates
+via `validateImageFile`, stores the original in R2, and returns its original
+URL.
+
+> Requires a Cloudflare zone with Image Resizing enabled on the delivery
+> origin. Available on paid plans — see Cloudflare's docs.
+
+## License
+
+MIT © BowenLabs

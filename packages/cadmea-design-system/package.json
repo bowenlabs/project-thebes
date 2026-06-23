@@ -1,0 +1,43 @@
+{
+  "name": "@bowenlabs/cadmea-design-system",
+  "version": "0.1.0",
+  "description": "Framework-agnostic design-token engine for Cadmea — themes, color scales, spacing/type tokens, fonts",
+  "author": "BowenLabs <hello@bowenlabs.io>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bowenlabs/project-thebes",
+    "directory": "packages/cadmea-design-system"
+  },
+  "keywords": [
+    "cadmea",
+    "design-system",
+    "design-tokens",
+    "daisyui",
+    "oklch",
+    "theme"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "tsup": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}

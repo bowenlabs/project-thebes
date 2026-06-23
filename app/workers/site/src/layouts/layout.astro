@@ -1,12 +1,15 @@
 ---
 import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
+import {
+  buildTokenStyle,
+  getFontConfig,
+} from "@bowenlabs/cadmea-design-system";
+import { renderSeoTags, type SeoDocument } from "@bowenlabs/cadmea-plugin-seo";
 import { db } from "@bowenlabs/cadmus/db";
 import { pages } from "@core/db/schema.generated";
-import { buildTokenStyle } from "@core/lib/design-system/build-token-style";
-import { getFontConfig } from "@core/lib/font-pairing";
 import { getSiteSettings } from "@core/lib/get-site-settings";
-import { createR2ImageService } from "@core/lib/image-service";
+import { createImageService } from "@core/lib/image-service";
 import phosphorCss from "@phosphor-icons/web/regular?url";
 import { eq } from "drizzle-orm";
 import SiteFooter, { type SocialLink } from "../components/SiteFooter.astro";
@@ -19,11 +22,28 @@ interface Props {
   showChrome?: boolean;
   /** Renders <meta name="robots" content="noindex">. Defaults to false. */
   noindex?: boolean;
+  /**
+   * Document whose SEO fields (from @bowenlabs/cadmea-plugin-seo) drive the
+   * <title> and meta/OG tags, with site_settings as the fallback. When
+   * omitted the layout renders a plain <title> from the `title` prop.
+   */
+  seo?: SeoDocument;
 }
 
-const { title, showChrome = true, noindex = false } = Astro.props;
+const { title, showChrome = true, noindex = false, seo } = Astro.props;
 
 const settings = await getSiteSettings(env.DB);
+
+// Render plugin-driven SEO tags from the document, falling back to
+// site-wide defaults. Output is HTML-escaped by the plugin, so set:html is
+// safe here. Empty string ⇒ fall back to the plain <title> below.
+const seoTags = seo
+  ? renderSeoTags(seo, {
+      siteName: settings?.siteName,
+      metaDescription: settings?.metaDescription,
+      defaultOgImageUrl: settings?.defaultOgImageUrl,
+    })
+  : "";
 const themeName = settings?.theme ?? "citadel";
 const fontConfig = getFontConfig(settings?.fontPairing);
 const tokenStyle = buildTokenStyle(settings ?? {});
@@ -54,7 +74,7 @@ const socialLinks: SocialLink[] = Array.isArray(settings?.socialLinks)
 // Never read settings.logoUrl directly into an <img> — always through
 // ImageService.render(), same reasoning as BlockRenderer.astro's image
 // block (forward-compat with a future Cloudflare Images extension).
-const imageService = createR2ImageService(env.R2, env.MEDIA_URL);
+const imageService = createImageService(env.R2, env.MEDIA_URL);
 const renderedLogo = settings?.logoUrl
   ? imageService.render({ url: settings.logoUrl, alt: "" })
   : null;
@@ -67,7 +87,7 @@ const renderedLogo = settings?.logoUrl
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
+		{seoTags ? <Fragment set:html={seoTags} /> : <title>{title}</title>}
 		{noindex && <meta name="robots" content="noindex" />}
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

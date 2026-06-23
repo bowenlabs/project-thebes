@@ -1,12 +1,15 @@
+import { seoPlugin } from "@bowenlabs/cadmea-plugin-seo";
 import { defineCmsConfig } from "@bowenlabs/cadmus/cms";
 
-// The single source of truth for the `pages` collection: drives both
-// the admin UI's field introspection (labels, types, options, required)
-// and the generated DB schema. Run `pnpm db:generate` after editing this
-// file — it regenerates app/core/db/schema.generated.ts (via
-// @bowenlabs/cadmus/cms's generateSchemaSource) and then runs
-// drizzle-kit generate against it.
-export const pagesCollection = {
+// The base `pages` definition. NOTE: consumers must not import this — they
+// import the resolved `pagesCollection` below, which is this definition
+// *after* plugins have run (e.g. the SEO plugin's injected meta fields and
+// its metaTitle-default hook). Reading the base directly would bypass every
+// plugin. It drives both the admin UI's field introspection and the
+// generated DB schema. Run `pnpm db:generate` after editing this file — it
+// regenerates app/core/db/schema.generated.ts (via @bowenlabs/cadmus/cms's
+// generateSchemaSource) and then runs drizzle-kit generate against it.
+const pagesBase = {
   slug: "pages",
   fields: {
     id: { type: "number", autoIncrement: true },
@@ -60,4 +63,18 @@ export const pagesCollection = {
   },
 } as const;
 
-export const cadmeaConfig = defineCmsConfig({ collections: [pagesCollection] });
+// The resolved config — plugins have run, fields are injected, hooks are
+// registered. This is the single source of truth every consumer reads:
+// schema codegen (app/scripts/generate-schema.ts), the admin UI's field
+// introspection, and the Local API. Add plugins here, never in consumers.
+export const cadmeaConfig = defineCmsConfig({
+  collections: [pagesBase],
+  plugins: [seoPlugin({ collections: ["pages"] })],
+});
+
+// The post-plugin `pages` collection. Every consumer imports THIS, not the
+// base, so injected SEO fields flow to the DB schema, the admin form, and
+// the Local API's validation/hooks alike.
+export const pagesCollection =
+  // biome-ignore lint/style/noNonNullAssertion: 'pages' is always present in the config above
+  cadmeaConfig.collections.find((collection) => collection.slug === "pages")!;

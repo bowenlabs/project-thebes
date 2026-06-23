@@ -1,0 +1,7 @@
+{
+  "name": "cadmus-example-minimal",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  // Create one with: wrangler kv namespace create minimal-kv
+  "kv_namespaces": [{ "binding": "KV", "id": "<your-kv-namespace-id>" }]
+}

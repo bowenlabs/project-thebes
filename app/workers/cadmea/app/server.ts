@@ -3,7 +3,7 @@
 import { CadmusStorageError } from "@bowenlabs/cadmus";
 import { checkRateLimit } from "@bowenlabs/cadmus/rate-limit";
 import { verifySessionCookie } from "@core/lib/auth";
-import { createR2ImageService } from "@core/lib/image-service";
+import { createImageService } from "@core/lib/image-service";
 import { securityHeaders } from "@core/lib/security-headers";
 import { getSession } from "@core/lib/session";
 import startHandler from "@tanstack/solid-start/server-entry";
@@ -54,10 +54,9 @@ app.post("/api/media/upload", async (c) => {
   }
 
   try {
-    const { url } = await createR2ImageService(
-      c.env.R2,
-      c.env.MEDIA_URL,
-    ).upload(file);
+    const { url } = await createImageService(c.env.R2, c.env.MEDIA_URL).upload(
+      file,
+    );
     return c.json({ url });
   } catch (err) {
     if (err instanceof CadmusStorageError) {

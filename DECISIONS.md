@@ -9,6 +9,103 @@
 
 ---
 
+## 2026-06-22 — Design system extracted to `@bowenlabs/cadmea-design-system` (a library, not an extension)
+
+**Decision:** The design-token engine (`buildTokenStyle` + color-scale,
+contrast, font-pairing, spacing/type presets, theme list) moves out of
+`app/core/lib` into a new standalone package, `@bowenlabs/cadmea-design-system`.
+
+**Classification — deliberately not a plugin or adapter.** It's a
+framework-agnostic, zero-dependency library of pure functions that turn a
+settings object into CSS. It doesn't take a CMS config (`(config) => config`)
+and doesn't implement a Cadmus interface (`ImageService`), so neither Section 2
+extension axis fits. Forcing it onto an axis would be a category error — the
+"plugin" framing the work started under was reclassified up front. EXTENDING.md
+now documents libraries as the third package category. Naming stays
+Cadmea-side (`@bowenlabs/cadmea-*`) to honor CADMUS.md's "Cadmus is not a design
+system — that's Cadmea's job."
+
+**Scope:** token engine only. The 8 modules (`build-token-style`,
+`resolve-spacing-tokens`, `spacing-presets`, `theme-presets`, `type-defaults`,
+`color-scale`, `contrast`, `font-pairing`) moved verbatim (only
+`build-token-style`'s two relative imports were flattened). All 11 consumers
+across both Workers were repointed to the package; the originals were deleted.
+**Left in the app on purpose:** the Panel's `design/*Tab.tsx` admin UI (SolidJS
+components that read/write `site_settings` via app server functions) and the
+theme CSS files (`public/themes/*`, static assets, duplicated per Worker).
+
+**Verification:** the package ships 11 unit tests (contrast, OKLCH ramp,
+`buildTokenStyle` cascade — none existed before); full `pnpm build` of both
+Workers passes; lint clean. Publishable count is now five; root
+`build:packages`/`test:*` and `.changeset` updated.
+
+**Gotcha hit during the move:** the cadmea worker build briefly failed resolving
+`@bowenlabs/cadmea/tanstack-start` — a *stale* `dist/` from an earlier build
+format, unrelated to this change. A fresh `build:cadmea-pkg` fixed it; the full
+pipeline rebuilds packages before Workers, so it doesn't recur from clean.
+
+---
+
+## 2026-06-22 — Section 2 opens: two-axis extension model, published from one monorepo
+
+**Decision:** Section 2 begins by giving Thebes a real extension architecture —
+the foundation for breaking features out as packages the way Payload ships
+`plugin-seo`, `storage-s3`, etc. Four decisions were ratified up front, then the
+plugin/hook engine and two reference extractions were built against them.
+
+**Ratified (the forks that shaped everything else):**
+1. **Topology — one monorepo, publish from it.** `cadmus`, `cadmea`, and all
+   first-party extensions live in `project-thebes` and publish to npm via
+   Changesets. Only `bowenlabs-template` (fork target / CF deploy button) and
+   `citadel-tooling` (Go orchestrator) are separate repos. Matches Payload,
+   Sanity, TanStack; one version graph, simplest for a solo maintainer.
+2. **npm identity — keep `@bowenlabs/*`.** Extensions publish as
+   `@bowenlabs/cadmus-*` (adapters) and `@bowenlabs/cadmea-plugin-*` (plugins).
+   Community extensions stay `@cadmus-community/*` as already documented.
+   Rejected unscoped `cadmusjs`/`cadmeacms` (rename churn, squat risk) and
+   per-product orgs `@cadmus/*`/`@cadmea/*` (two npm orgs, brand split).
+3. **Two extension axes, kept distinct** (see `EXTENDING.md`):
+   - **Cadmus adapters** — swappable implementations of an interface Cadmus
+     already defines (`ImageService`). Framework-level, framework-agnostic.
+   - **Cadmea plugins** — Payload-shaped `(config) => config` transforms.
+     Content/admin-level, operate on collections/fields/hooks.
+4. **First-pass scope — foundations + two reference extractions.** Deferred:
+   design-system extraction, the SMB example template, and `access` enforcement.
+
+**What shipped this pass:**
+- **Plugin + hook engine** (`@bowenlabs/cadmus/cms`, minor bump). `CmsConfig`
+  gains `plugins: CadmeaPlugin[]`, run in order by `defineCmsConfig` before
+  validation. The previously-reserved collection `hooks` (issue #16 step 7) are
+  now enforced by `createLocalApi` on every op; `beforeChange` runs before
+  validation so a hook can default a required field. `access` stays reserved.
+- **`@bowenlabs/cadmea-plugin-seo`** (CMS axis) — injects `metaTitle`/
+  `metaDescription`/`ogImage` + a metaTitle-default hook; ships `renderSeoTags`.
+  Wired onto `pages`; verified live (the `/seo-demo` SSR `<head>` now carries the
+  plugin's title/description/OG tags, no duplicate `<title>`). Migration `0004`
+  added the three columns.
+- **`@bowenlabs/cadmus-cloudflare-images`** (adapter axis) — an `ImageService`
+  returning `/cdn-cgi/image/...` URLs with responsive `srcset`. R2 stays the
+  default; `app/core/lib/image-service.ts`'s new `createImageService` is the
+  single selection point all call sites route through.
+- **Publishing** — Changesets configured (`.changeset/`), root `build:packages`
+  + per-package `test:*` scripts, `site` worker marked `private`.
+
+**Wiring rule that matters:** consumers must read the **resolved** config
+(post-plugin), never the raw collection definition, or injected fields and hooks
+are bypassed. `app/cadmea.config.ts` now exports `pagesCollection` as the
+resolved collection; the admin routes, Local API, and schema codegen all read it.
+
+**Known follow-ups:** the Panel admin form isn't yet covered by an
+authenticated e2e asserting the SEO fields render (covered by construction +
+build + the plugin's engine tests); SEO fields render flat (no grouped/tabbed
+admin presentation yet); `@bowenlabs/cadmea` still lacks its own LICENSE file.
+
+**Revisit if:** design-system extraction or the SMB template resumes (will
+exercise the plugin engine harder and may surface gaps in field grouping or
+`access` enforcement).
+
+---
+
 ## 2026-06-22 — Section 1 (Cadmea core) formally closed
 
 **Decision:** Section 1 is done. All 15 phase issues (#1–#15) plus the

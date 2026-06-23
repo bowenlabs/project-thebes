@@ -70,9 +70,20 @@ export function defineCollection(config: CollectionConfig): CollectionConfig {
 }
 
 export function defineCmsConfig(config: CmsConfig): CmsConfig {
-  for (const collection of config.collections) {
+  // Run plugins in array order, each fed the previous one's output, before
+  // any validation — a plugin's emitted config is held to exactly the same
+  // rules as a hand-written one. The resolved config (not the raw input) is
+  // what every downstream consumer reads: schema codegen, admin meta, and
+  // the Local API. Plugins must not mutate their input; treat `config` as
+  // immutable and return a new object (the SEO plugin does this).
+  let resolved: CmsConfig = config;
+  for (const plugin of config.plugins ?? []) {
+    resolved = plugin(resolved);
+  }
+
+  for (const collection of resolved.collections) {
     validateCollectionConfig(collection);
   }
-  validateUniqueSlugs(config.collections);
-  return config;
+  validateUniqueSlugs(resolved.collections);
+  return resolved;
 }

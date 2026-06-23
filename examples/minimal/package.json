@@ -1,0 +1,19 @@
+{
+  "name": "cadmus-example-minimal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The smallest possible Cadmus app — one Worker, one primitive",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@bowenlabs/cadmus": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "typescript": "latest",
+    "wrangler": "latest"
+  }
+}

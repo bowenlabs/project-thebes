@@ -39,13 +39,41 @@ everything that isn't this.
 ```
 thebes/
 ├── packages/
-│   ├── cadmus/        @bowenlabs/cadmus — the framework
-│   └── cadmea/        @bowenlabs/cadmea — Cadmea's admin-UI components
+│   ├── cadmus/                    @bowenlabs/cadmus — the framework
+│   ├── cadmea/                    @bowenlabs/cadmea — Cadmea's admin-UI components
+│   ├── cadmea-design-system/      @bowenlabs/cadmea-design-system — design-token engine (standalone lib)
+│   ├── cadmea-plugin-seo/         @bowenlabs/cadmea-plugin-seo — SEO plugin (CMS axis)
+│   └── cadmus-cloudflare-images/  @bowenlabs/cadmus-cloudflare-images — image adapter (framework axis)
 ├── app/
 │   ├── workers/site/   docs + marketing for Cadmus and Cadmea, example deployment
 │   └── workers/cadmea/ Cadmea — the reference CMS admin
-└── examples/          Standalone Cadmus usage examples
+└── examples/
+    └── minimal/        the smallest possible Cadmus app (with-auth, with-d1 planned)
 ```
+
+Extensions come on two axes — **adapters** (`@bowenlabs/cadmus-*`, swappable
+implementations like image services) and **plugins** (`@bowenlabs/cadmea-plugin-*`,
+Payload-style `config => config` transforms). Shared building blocks that are
+neither (like the design-token engine) ship as plain **libraries**. See
+**[EXTENDING.md](./EXTENDING.md)**.
+
+### The bigger picture
+
+`project-thebes` is the **monorepo** — it holds the framework, the CMS, the
+first-party extensions, the docs site, the reference app, and the examples, and
+it publishes the `@bowenlabs/*` packages to npm. Two things live *outside* it:
+
+- **`bowenlabs-template`** — the fork target (Cloudflare deploy button) a client
+  site is built from. It consumes the published packages and holds that site's
+  `cadmea.config.ts` and `custom/`.
+- **`citadel-tooling`** — the Go orchestrator that provisions Cloudflare
+  accounts and domains for one-step, non-developer deploys of the template.
+
+Cadmus itself is **not a meta-framework** (it doesn't own routing, layouts, or
+your build) and the "stack" is not a single package — it's the published
+packages plus the documented architecture plus the template that wires them into
+a deployable app. Cadmea is the admin-UI component library that renders against
+Cadmus's CMS metadata; admin behavior beyond that ships as plugins.
 
 ---
 

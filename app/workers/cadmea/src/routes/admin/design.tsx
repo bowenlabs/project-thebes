@@ -1,4 +1,4 @@
-import type { TypeTokens } from "@core/lib/design-system/type-defaults";
+import type { TypeTokens } from "@bowenlabs/cadmea-design-system";
 import { createFileRoute, useBlocker } from "@tanstack/solid-router";
 import {
   createEffect,

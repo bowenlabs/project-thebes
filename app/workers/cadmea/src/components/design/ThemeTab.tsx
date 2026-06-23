@@ -1,6 +1,9 @@
-import { THEME_PRESET_LIST } from "@core/lib/design-system/theme-presets";
-import type { FontPairingKey } from "@core/lib/font-pairing";
-import { buildAllFontsUrl, getFontConfig } from "@core/lib/font-pairing";
+import type { FontPairingKey } from "@bowenlabs/cadmea-design-system";
+import {
+  buildAllFontsUrl,
+  getFontConfig,
+  THEME_PRESET_LIST,
+} from "@bowenlabs/cadmea-design-system";
 import { For, type JSX } from "solid-js";
 
 const FONT_PAIRINGS: FontPairingKey[] = [

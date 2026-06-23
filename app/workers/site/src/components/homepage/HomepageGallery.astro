@@ -1,7 +1,7 @@
 ---
 import { env } from "cloudflare:workers";
 import type { SiteSettings } from "@core/lib/get-site-settings";
-import { createR2ImageService } from "@core/lib/image-service";
+import { createImageService } from "@core/lib/image-service";
 
 interface Props {
   settings: SiteSettings | null;
@@ -13,7 +13,7 @@ const { settings, heroTitle, heroBody } = Astro.props;
 
 // Never read settings.logoUrl directly into an <img> — see layout.astro's
 // SiteNav usage for the same reasoning.
-const imageService = createR2ImageService(env.R2, env.MEDIA_URL);
+const imageService = createImageService(env.R2, env.MEDIA_URL);
 const renderedLogo = settings?.logoUrl
   ? imageService.render({ url: settings.logoUrl, alt: "" })
   : null;

@@ -145,3 +145,123 @@ describe("createLocalApi", () => {
     expect(error.cause).toBeDefined();
   });
 });
+
+describe("createLocalApi hooks", () => {
+  it("runs beforeChange before validation, so a hook can supply a required field", async () => {
+    const api = createLocalApi(db, pagesTable, {
+      ...pagesCollection,
+      hooks: {
+        beforeChange: [
+          ({ data }) => ({ ...data, title: data.title ?? "Defaulted" }),
+        ],
+      },
+    });
+
+    // `title` is required and omitted — the beforeChange hook fills it,
+    // so validation passes instead of throwing.
+    const created = await api.create({ slug: "from-hook" });
+    expect(created.title).toBe("Defaulted");
+  });
+
+  it("runs multiple beforeChange hooks in order, each fed the previous output", async () => {
+    const api = createLocalApi(db, pagesTable, {
+      ...pagesCollection,
+      hooks: {
+        beforeChange: [
+          ({ data }) => ({ ...data, title: `${data.title}-a` }),
+          ({ data }) => ({ ...data, title: `${data.title}-b` }),
+        ],
+      },
+    });
+
+    const created = await api.create({ title: "x", slug: "ordered" });
+    expect(created.title).toBe("x-a-b");
+  });
+
+  it("fires afterChange with the persisted doc on create and update", async () => {
+    const seen: Array<{ id: number; title: string }> = [];
+    const api = createLocalApi(db, pagesTable, {
+      ...pagesCollection,
+      hooks: {
+        afterChange: [
+          ({ doc }) => {
+            const row = doc as { id: number; title: string };
+            seen.push({ id: row.id, title: row.title });
+          },
+        ],
+      },
+    });
+
+    const created = await api.create({ title: "Home", slug: "home" });
+    await api.update(created.id, { title: "Renamed" });
+
+    expect(seen).toEqual([
+      { id: created.id, title: "Home" },
+      { id: created.id, title: "Renamed" },
+    ]);
+  });
+
+  it("transforms read results via afterRead on find and findByID", async () => {
+    const api = createLocalApi(db, pagesTable, {
+      ...pagesCollection,
+      hooks: {
+        afterRead: [
+          ({ doc }) => ({
+            ...doc,
+            title: `${(doc as { title: string }).title}!`,
+          }),
+        ],
+      },
+    });
+
+    const created = await api.create({ title: "Home", slug: "home" });
+    // create() does not run read hooks — the raw persisted title comes back
+    expect(created.title).toBe("Home");
+
+    const found = await api.findByID(created.id);
+    expect(found.title).toBe("Home!");
+
+    const [listed] = await api.find();
+    expect(listed?.title).toBe("Home!");
+  });
+
+  it("fires beforeDelete and afterDelete around a successful delete", async () => {
+    const calls: string[] = [];
+    const api = createLocalApi(db, pagesTable, {
+      ...pagesCollection,
+      hooks: {
+        beforeDelete: [
+          () => {
+            calls.push("before");
+          },
+        ],
+        afterDelete: [
+          () => {
+            calls.push("after");
+          },
+        ],
+      },
+    });
+
+    const created = await api.create({ title: "Home", slug: "home" });
+    await api.deleteByID(created.id);
+    expect(calls).toEqual(["before", "after"]);
+  });
+
+  it("does not fire afterDelete when the row does not exist", async () => {
+    const calls: string[] = [];
+    const api = createLocalApi(db, pagesTable, {
+      ...pagesCollection,
+      hooks: {
+        afterDelete: [
+          () => {
+            calls.push("after");
+          },
+        ],
+      },
+    });
+
+    await expect(api.deleteByID(999)).rejects.toThrow(CadmusCmsError);
+    expect(calls).toEqual([]);
+  });
+});
