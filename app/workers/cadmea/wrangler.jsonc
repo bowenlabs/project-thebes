@@ -31,6 +31,19 @@
   "send_email": [{
     "name": "EMAIL"
   }],
+  // Webhook dispatch (issue #27) — the producer binding `createWebhookHook`
+  // enqueues onto, and the consumer this same Worker drains via its
+  // `queue()` export (see app/server.ts). `max_retries` exhausted routes
+  // a message to the DLQ instead of dropping it — see queue's README in
+  // packages/cadmus/src/queues/.
+  "queues": {
+    "producers": [{ "queue": "thebes-webhooks", "binding": "WEBHOOKS" }],
+    "consumers": [{
+      "queue": "thebes-webhooks",
+      "max_retries": 5,
+      "dead_letter_queue": "thebes-webhooks-dlq"
+    }]
+  },
   "vars": {
     // Worker 1's public origin. Not a secret — just the site's own URL —
     // so it lives in wrangler.jsonc rather than .dev.vars. Override per

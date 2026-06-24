@@ -1,6 +1,10 @@
 import { pages, pages_versions } from "@core/db/schema.generated";
 import { createServerFn } from "@tanstack/solid-start";
-import { can, createVersionedLocalApi } from "@thebes/cadmus/cms";
+import {
+  can,
+  createVersionedLocalApi,
+  createWebhookHook,
+} from "@thebes/cadmus/cms";
 import { db } from "@thebes/cadmus/db";
 import { checkRateLimit } from "@thebes/cadmus/rate-limit";
 import { asc, type Column, desc } from "drizzle-orm";
@@ -11,13 +15,33 @@ import {
   requireSameOriginOrThrow,
 } from "../../app/middleware.js";
 
+// `cadmea.config.ts` is a static module-level export with no `env`
+// access (see issue #27's open question), so the webhook hook is layered
+// on here instead, per request, where `env.WEBHOOKS`/`env.WEBHOOK_URL`
+// are actually reachable. Unset `WEBHOOK_URL` (the Section 1 default) =
+// no hook attached at all, not a hook that's attached and no-ops.
 async function pagesApi() {
   const { env } = await import("cloudflare:workers");
+  const collection = env.WEBHOOK_URL
+    ? {
+        ...pagesCollection,
+        hooks: {
+          ...pagesCollection.hooks,
+          afterChange: [
+            ...(pagesCollection.hooks?.afterChange ?? []),
+            createWebhookHook(env.WEBHOOKS, {
+              url: env.WEBHOOK_URL,
+              secret: env.WEBHOOK_SECRET || undefined,
+            }),
+          ],
+        },
+      }
+    : pagesCollection;
   return createVersionedLocalApi<
     typeof pages,
     typeof pages_versions,
     PagesAccessContext
-  >(db(env.DB), pages, pages_versions, pagesCollection);
+  >(db(env.DB), pages, pages_versions, collection);
 }
 
 // beforeLoad route guards (src/routes/admin/route.tsx) only run during

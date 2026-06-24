@@ -7,3 +7,4 @@ export * from "./localApi.js";
 export * from "./meta.js";
 export * from "./schema-gen.js";
 export type * from "./types.js";
+export * from "./webhooks.js";

@@ -7,6 +7,8 @@ import { securityHeaders } from "@core/lib/security-headers";
 import { getSession, type Session } from "@core/lib/session";
 import startHandler from "@tanstack/solid-start/server-entry";
 import { CadmusStorageError } from "@thebes/cadmus";
+import { deliverWebhookMessage, type WebhookMessage } from "@thebes/cadmus/cms";
+import { processBatch } from "@thebes/cadmus/queues";
 import { checkRateLimit } from "@thebes/cadmus/rate-limit";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -94,4 +96,14 @@ mountPublicCmsApi(app, { getSession: sessionFromCookie });
 // 2. TanStack Start — fallback for everything else, must be last
 app.all("*", async (c) => startHandler.fetch(c.req.raw));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Webhook delivery consumer (issue #27) — drains the `WEBHOOKS` queue
+  // `pagesApi()` enqueues onto (src/server-functions/pages.ts). Delivery
+  // failures (`deliverWebhookMessage` throwing) become a `message.retry()`
+  // via `processBatch`; once `max_retries` (wrangler.jsonc) is exhausted,
+  // CF Queues routes the message to the configured dead_letter_queue.
+  async queue(batch: MessageBatch<WebhookMessage>) {
+    await processBatch(batch, deliverWebhookMessage);
+  },
+};

@@ -259,9 +259,10 @@ async function runBeforeChange(
 async function runAfterChange(
   config: CollectionConfig,
   doc: AnyRecord,
+  operation: "create" | "update",
 ): Promise<void> {
   for (const hook of config.hooks?.afterChange ?? []) {
-    await hook({ doc });
+    await hook({ doc, operation });
   }
 }
 
@@ -418,7 +419,7 @@ export function createLocalApi<TTable extends AnyTable, TContext = unknown>(
       // wrapWriteError returns `never`, so reaching here means the insert
       // succeeded and `doc` is set. afterChange runs outside the try so its
       // side-effect errors aren't mis-reported as write failures.
-      await runAfterChange(config, doc as Record<string, unknown>);
+      await runAfterChange(config, doc as Record<string, unknown>, "create");
       return doc as InferSelectModel<TTable>;
     },
 
@@ -442,7 +443,7 @@ export function createLocalApi<TTable extends AnyTable, TContext = unknown>(
       } catch (error) {
         wrapWriteError(config, error);
       }
-      await runAfterChange(config, doc as Record<string, unknown>);
+      await runAfterChange(config, doc as Record<string, unknown>, "update");
       return doc as InferSelectModel<TTable>;
     },
 
@@ -588,7 +589,9 @@ export function createVersionedLocalApi<
         // biome-ignore lint/suspicious/noExplicitAny: status is a fixed two-value enum column
         .set({ status: "published" } as any)
         .where(eq(versionsIdColumn, versionId));
-      await runAfterChange(config, doc as Record<string, unknown>);
+      // publish() writes to an already-existing row, never a new one —
+      // counts as "update" the same way createLocalApi.update() does.
+      await runAfterChange(config, doc as Record<string, unknown>, "update");
       return doc as InferSelectModel<TTable>;
     },
 

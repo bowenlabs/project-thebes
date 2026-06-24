@@ -7,3 +7,8 @@ SERVER_URL=
 THEBES_SERVICE_KEY=
 THEBES_SITE_ID=
 CF_ANALYTICS_TOKEN=
+
+# Optional — outbound webhooks (issue #27). Unset = no webhook hook
+# attached at all (see pagesApi() in src/server-functions/pages.ts).
+WEBHOOK_URL=
+WEBHOOK_SECRET=

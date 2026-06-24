@@ -621,6 +621,8 @@ MEDIA_URL=             ← public R2 bucket base URL, no trailing slash
 THEBES_SERVICE_KEY=    ← shared secret for internal service calls
 THEBES_SITE_ID=        ← issued by citadel-tooling, enables managed features
 CF_ANALYTICS_TOKEN=    ← Cloudflare Web Analytics token
+WEBHOOK_URL=           ← outbound webhook endpoint (issue #27); unset = no webhook hook attached
+WEBHOOK_SECRET=        ← HMAC-SHA256 signs the X-Cadmus-Signature header when set
 ```
 
 ---

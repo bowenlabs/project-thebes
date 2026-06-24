@@ -170,7 +170,19 @@ export interface CollectionHooks<TDoc = Record<string, unknown>> {
   beforeChange?: Array<
     (args: { data: Partial<TDoc> }) => Partial<TDoc> | Promise<Partial<TDoc>>
   >;
-  afterChange?: Array<(args: { doc: TDoc }) => void | Promise<void>>;
+  /**
+   * `operation` distinguishes a freshly-inserted doc from an edited one —
+   * `publish()` (versioned collections) counts as `"update"`, since it
+   * writes to an already-existing row rather than creating one. Lets
+   * webhook config (see `cms/webhooks.ts`) filter which events it fires
+   * on without the hook itself tracking state.
+   */
+  afterChange?: Array<
+    (args: {
+      doc: TDoc;
+      operation: "create" | "update";
+    }) => void | Promise<void>
+  >;
   beforeRead?: Array<(args: { doc: TDoc }) => TDoc | Promise<TDoc>>;
   afterRead?: Array<(args: { doc: TDoc }) => TDoc | Promise<TDoc>>;
   beforeDelete?: Array<(args: { id: number }) => void | Promise<void>>;

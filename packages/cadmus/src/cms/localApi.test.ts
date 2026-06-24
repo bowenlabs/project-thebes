@@ -405,6 +405,25 @@ describe("createLocalApi hooks", () => {
     ]);
   });
 
+  it("tags afterChange with operation: create on create and operation: update on update", async () => {
+    const operations: Array<"create" | "update"> = [];
+    const api = createLocalApi(db, pagesTable, {
+      ...pagesCollection,
+      hooks: {
+        afterChange: [
+          ({ operation }) => {
+            operations.push(operation);
+          },
+        ],
+      },
+    });
+
+    const created = await api.create(ctx, { title: "Home", slug: "home-op" });
+    await api.update(ctx, created.id, { title: "Renamed" });
+
+    expect(operations).toEqual(["create", "update"]);
+  });
+
   it("transforms read results via afterRead on find and findByID", async () => {
     const api = createLocalApi(db, pagesTable, {
       ...pagesCollection,
