@@ -208,9 +208,9 @@ packages/cadmus/
 │   ├── errors.ts            ← CadmusError base class + typed subtypes
 │   └── index.ts             ← re-exports all primitives (meta import)
 │
-├── dist/                    ← compiled output (tsup → ESM + CJS + .d.ts)
+├── dist/                    ← compiled output (tsdown → ESM + CJS + .d.ts)
 ├── package.json             ← name: "@thebes/cadmus", exports map
-├── tsup.config.ts           ← build config
+├── tsdown.config.ts         ← build config
 ├── tsconfig.json
 └── README.md                ← top-level framework docs
 ```
@@ -285,11 +285,14 @@ don't ship to production.
 
 ## Build pipeline
 
-**Tool:** tsup (wraps esbuild, handles ESM + CJS + `.d.ts` in one pass).
+**Tool:** tsdown (Rolldown-based, wraps the same esbuild/Rolldown toolchain
+lineage as tsup — replaces it as of DECISIONS.md's 2026-06-23 entry
+superseding 2026-06-22's Void/Vite+/Rolldown watch-item; handles ESM + CJS +
+`.d.ts` in one pass, same as tsup did).
 
 ```typescript
-// packages/cadmus/tsup.config.ts
-import { defineConfig } from 'tsup'
+// packages/cadmus/tsdown.config.ts
+import { defineConfig } from 'tsdown'
 
 export default defineConfig({
   entry: {
@@ -311,7 +314,7 @@ export default defineConfig({
 })
 ```
 
-`pnpm build:cadmus` runs tsup and produces `dist/`. During development,
+`pnpm build:cadmus` runs tsdown and produces `dist/`. During development,
 both Workers consume `@thebes/cadmus` via pnpm workspace reference —
 TypeScript resolves directly from `src/` via `tsconfig.json` paths.
 The build step is required before publishing to npm and is validated

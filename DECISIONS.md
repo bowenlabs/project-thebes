@@ -9,6 +9,112 @@
 
 ---
 
+## 2026-06-23 — Void/Vite+/Rolldown: Void rejected, Vite+'s packaging rejected, tsdown + babel-preset-solid adopted (supersedes 2026-06-22 watch-item)
+
+**Context:** the 2026-06-22 watch-item entry below deferred all three
+VoidZero/Cloudflare projects pending GA and a Solid-support spike. Internal
+tooling/PoC risk tolerance changed the calculus enough to actually run that
+spike now rather than keep waiting, scoped down to: drop Void (its hosting
+platform isn't wanted — Thebes deploys to its own Cloudflare account via
+`wrangler`, not Void's), and settle whether Vite+ can replace `tsup`/
+`tsup-preset-solid` for `packages/cadmus` and `packages/cadmea`. Spiked in
+two throwaway `examples/spike-*` dirs (deleted after this entry landed).
+
+**Void — rejected, more conclusively than the watch-item recorded:**
+- **No BYO-Cloudflare/wrangler deploy path exists.** The watch-item's
+  "confirmed BYO-Cloudflare-account path" claim doesn't hold against the
+  actual `void` CLI (`void@0.9.3`): `void deploy` ships to Void's own
+  hosted platform (`void auth login` via GitHub/Google, `void project`/
+  `void domain`/`void secret`). `setupWranglerConfig` exists but is scoped
+  to local-dev Workers emulation for certain meta-frameworks, not the
+  deploy target. That claim should be treated as incorrect, not just
+  outdated.
+- **Closed source.** `void`'s published `package.json` has no `license`
+  field (npm's CLI summary shows "Proprietary" for this — the registry's
+  default label for a missing field, not necessarily Cloudflare's
+  deliberate license choice, but the practical effect is the same: no OSS
+  terms apply today). Its linked repo (`github.com/voidzero-dev/void`)
+  404s on both the web UI and the API — not source-available.
+- **Solid support is real but doesn't cover this architecture.** Void
+  ships a genuine `@void/solid` adapter (wraps real `vite-plugin-solid`,
+  correct `jsxImportSource: "solid-js"`) for its own native "Pages"
+  router/framework mode — confirmed in `void init`'s scaffold options and
+  `SCAFFOLD_FRAMEWORKS` table, parallel to React/Vue/Svelte, not a
+  second-class citizen. But void's meta-framework detection
+  (`FRAMEWORK_PACKAGES` in `plugin-inference.ts`) only recognizes
+  `@tanstack/react-start` for TanStack Start integration — no
+  `@tanstack/solid-start` entry exists. Adopting void's Solid support
+  would mean replacing Worker 2's TanStack-Start-Solid architecture with
+  void's own Pages/routing convention, not thinning Cadmus's primitives
+  underneath the existing architecture the way issue #30 scoped it.
+
+**Vite+'s packaging (`vp pack`) — rejected, confirmed broken for Solid:**
+spiked a throwaway Solid component package built with `vp pack --dts`.
+Default output resolved `react/jsx-runtime` — doesn't even resolve (no
+react dependency), and wouldn't produce Solid's fine-grained-reactive
+output even if it did (Solid needs a real compiler pass, not a
+React-shaped automatic-JSX-runtime call). Setting `jsx: "preserve"` in
+tsconfig avoids the wrong-default-transform error but ships raw,
+unexecutable JSX syntax in the built `.mjs` — worse, not better. `vp pack`
+also doesn't load `tsdown.config.ts` at all (confirmed via `--debug`: no
+config-file discovery log line ever appears when an entry is passed as a
+CLI arg) — this looks like a genuine gap in vite-plus's wrapper, not a
+Solid-specific limitation, and is worth filing upstream.
+
+**Adopted: real `tsdown` directly (not `vp pack`) + `@rolldown/plugin-babel`
++ `babel-preset-solid`.** `tsdown` is the actual Rolldown-based engine
+vite-plus's `pack` command wraps — independently published, MIT, by the
+`tsup` author. Calling it directly and wiring in
+`@rolldown/plugin-babel` + `babel-preset-solid` (the same pattern Void's
+own React scaffold uses for React — `@rolldown/plugin-babel` +
+`reactCompilerPreset()` — just swapped to Solid's preset) produces
+genuine `template()`/`insert()`/`delegateEvents()` output for the
+browser build and `ssr()`/`escape()` output for the server build,
+verified by inspecting the compiled `dist/` output directly, not just a
+clean exit code.
+
+**Implementation:**
+- `packages/cadmus`: `tsup` → `tsdown` (no JSX in this package, no babel
+  plugin needed — a mechanical swap). `tsup.config.ts` → `tsdown.config.ts`,
+  same entry map, same `external`/`deps.neverBundle` list
+  (`hono`, `drizzle-orm`, `cloudflare:email`). Output paths unchanged
+  (`dist/index.js`, `dist/auth/index.js`, etc.) — CI's existing
+  `test -f packages/cadmus/dist/...` assertions needed no changes.
+- `packages/cadmea`: `tsup` + `tsup-preset-solid` → `tsdown` +
+  `@rolldown/plugin-babel` + `babel-preset-solid`, four explicit build
+  configs in one `tsdown.config.ts` array (index/dom, index/ssr,
+  tanstack-start/dom, tanstack-start/ssr) replicating
+  `tsup-preset-solid`'s dual codegen (`generate: "dom"` for the browser
+  build, `generate: "ssr"` for the server build) from the same source.
+  **Deliberately deviates from the preset's `platform: "node"` default
+  for the server build** — Cadmea's server-side rendering happens inside
+  the Cloudflare Worker V8 isolate (Worker 2), never Node, so both builds
+  stay on `platform: "browser"` regardless of which codegen mode they use.
+  `package.json`'s `exports` map is unchanged (already matched the
+  required `dist/index/{index,server}.js` / `dist/tanstack-start/
+  {index,server}.js` shape) but is now hand-maintained — `tsdown` has no
+  package.json-writing preset the way `tsup-preset-solid` did.
+- Verified: all 148 `packages/cadmus` tests, all 42 `packages/cadmea`
+  tests, all 24 `tests/int` integration tests, `pnpm build:packages`, and
+  a full `pnpm build:cadmea` (Worker 2) all pass against the new build
+  output. `biome check` passes on the new config files.
+
+**Explicitly deferred, not adopted:** Vite+'s `vp lint`/`vp fmt`/`vp test`
+as a Biome replacement. Both ran clean against Solid `.tsx` source in the
+spike (they're syntax-level, framework-agnostic), so there's no known
+blocker — but that's a one-file toy check, not a real evaluation against
+this monorepo's actual Biome ruleset, CI wiring, or every package at once.
+Biome stays for now; re-evaluating it is a separate, explicitly-scoped
+decision, not a side effect of this one.
+
+**Revisit:** if vite-plus fixes `vp pack`'s config-loading gap upstream,
+re-evaluate whether `vp pack` can replace the hand-rolled `tsdown.config.ts`
++ babel-plugin setup — the babel-Solid wiring would likely still be
+necessary either way, just possibly expressible through `vp pack` instead
+of bypassing it.
+
+---
+
 ## 2026-06-23 — Renamed the npm scope from `@bowenlabs` to `@thebes`
 
 **Context:** Project Thebes has evolved beyond "one repo among several
@@ -188,6 +294,12 @@ both the Service Binding RPC and the public REST mount.
 ---
 
 ## 2026-06-22 — Watch item: VoidZero's Void, Vite+, and Rolldown — defer adoption, re-evaluate at GA
+
+> **Superseded 2026-06-23** (entry above) — Void rejected (closed source,
+> no BYO-Cloudflare deploy path despite this entry's claim otherwise, and
+> no TanStack-Start-Solid support), Vite+'s `vp pack` rejected (broken
+> Solid JSX handling), `tsdown` + `babel-preset-solid` adopted for
+> `packages/cadmus`/`packages/cadmea`'s build. Kept below for history.
 
 **Decision:** No code changes now. Tracking three related VoidZero
 (Evan You's company, **acquired by Cloudflare** in June 2026) projects

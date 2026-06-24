@@ -69,8 +69,8 @@
     }
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -86,7 +86,7 @@
     "@cloudflare/vitest-pool-workers": "latest",
     "@cloudflare/workers-types": "latest",
     "hono": "latest",
-    "tsup": "latest",
+    "tsdown": "latest",
     "typescript": "latest",
     "vitest": "latest"
   },

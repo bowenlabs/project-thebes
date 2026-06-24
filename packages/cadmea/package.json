@@ -18,8 +18,8 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -42,8 +42,10 @@
     "@testing-library/jest-dom": "latest",
     "jsdom": "latest",
     "solid-js": "^1.9.13",
-    "tsup": "^8.5.1",
-    "tsup-preset-solid": "^2.2.0",
+    "@babel/core": "^7.28.0",
+    "@rolldown/plugin-babel": "^0.2.3",
+    "babel-preset-solid": "^1.9.12",
+    "tsdown": "latest",
     "typescript": "latest",
     "vite-plugin-solid": "latest",
     "vitest": "latest"

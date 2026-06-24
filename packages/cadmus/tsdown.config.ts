@@ -1,5 +1,11 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
+// tsdown (Rolldown-based) replaces tsup here — see DECISIONS.md's entry
+// superseding the 2026-06-22 Void/Vite+/Rolldown watch-item for why:
+// Vite+'s own `vp pack` doesn't load this config file (confirmed bug,
+// not a Solid-specific gap), so the underlying engine is used directly.
+// No JSX in this package, so this config needs no Solid-specific setup —
+// see packages/cadmea/tsdown.config.ts for that.
 export default defineConfig({
   entry: {
     index: "src/index.ts",
@@ -21,5 +27,5 @@ export default defineConfig({
   target: "es2022",
   // Cloudflare Workers target — no Node.js built-ins
   platform: "browser",
-  external: ["hono", "drizzle-orm", "cloudflare:email"],
+  deps: { neverBundle: ["hono", "drizzle-orm", "cloudflare:email"] },
 });

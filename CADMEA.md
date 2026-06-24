@@ -121,9 +121,13 @@ packages/cadmea/
 │   │   ├── edit.tsx             ← createCollectionEditPage
 │   │   └── index.ts
 │   └── index.ts
-├── dist/                        ← tsup-preset-solid output (server/browser/worker/node/deno)
-├── package.json                 ← name: "@thebes/cadmea", exports map
-├── tsup.config.ts
+├── dist/                        ← tsdown + @rolldown/plugin-babel +
+│                                  babel-preset-solid output (server/browser/
+│                                  worker/node/deno) — see DECISIONS.md
+│                                  2026-06-23 entry superseding 2026-06-22
+├── package.json                 ← name: "@thebes/cadmea", exports map is
+│                                  hand-maintained (no preset writes it now)
+├── tsdown.config.ts
 └── README.md                    ← npm-facing install/usage docs
 
 app/

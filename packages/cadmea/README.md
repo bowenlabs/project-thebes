@@ -26,12 +26,15 @@ than owning the components directly.
 pnpm add @thebes/cadmea @thebes/cadmus solid-js
 ```
 
-Built with [`tsup-preset-solid`](https://github.com/solidjs-community/tsup-preset-solid),
-which runs Solid's JSX through `babel-preset-solid` (via `esbuild-plugin-solid`)
-to produce real fine-grained-reactive output — not the generic
-`createElement`-style transform plain esbuild/tsup would otherwise
-produce. Ships separate `browser`/`worker`/`node`/`deno` export
-conditions, matching how `solid-js` itself ships, so the right build
+Built with [`tsdown`](https://tsdown.dev) (Rolldown-based) plus
+[`@rolldown/plugin-babel`](https://github.com/rolldown/plugins) running
+Solid's JSX through `babel-preset-solid` directly, to produce real
+fine-grained-reactive output — not the generic `createElement`-style
+transform plain Rolldown/esbuild would otherwise produce (this includes
+Vite+'s own `vp pack`, which defaults to React's automatic JSX runtime —
+see `DECISIONS.md`'s 2026-06-23 entry for why that path was rejected).
+Ships separate `browser`/`worker`/`node`/`deno` export conditions,
+matching how `solid-js` itself ships, so the right build
 (client-hydration vs. SSR) resolves automatically wherever you consume it
 — including from outside this monorepo, unlike the source-only shape this
 package started as (see `DECISIONS.md`'s 2026-06-22 entries).
