@@ -3,26 +3,183 @@
 // plugin (the fallback route's `@astrojs/cloudflare/handler` import pulls in
 // a virtual module that only exists inside an actual Astro build/dev
 // context, which the vitest-pool-workers runtime doesn't provide).
+//
+// The magic-link/verify/logout routes below stay Hono routes (rather than
+// real `src/pages/api/*.ts` Astro pages) for exactly that reason, but
+// delegate their actual logic to @thebes/cadmus/astro's
+// createMagicLinkHandlers/createLogoutHandler via runAstroRoute() — a
+// minimal Hono-Context-to-Astro-APIContext shim — so this Worker dogfoods
+// the same primitive #32 built for real Astro pages elsewhere. See
+// issue #33.
 
 import { users } from "@core/db/schema";
-import {
-  createMagicLinkToken,
-  signSessionCookie,
-  verifyMagicLinkToken,
-  verifyPreviewToken,
-} from "@core/lib/auth";
+import { verifyPreviewToken } from "@core/lib/auth";
 import { parseBlocks, renderBlocksToHtml } from "@core/lib/blocks";
 import { createImageService } from "@core/lib/image-service";
 import { sendEmail } from "@core/lib/notify";
 import { securityHeaders } from "@core/lib/security-headers";
-import { createSession, deleteSession } from "@core/lib/session";
+import {
+  createSession as createCoreSession,
+  deleteSession as deleteCoreSession,
+} from "@core/lib/session";
+import {
+  createLogoutHandler,
+  createMagicLinkHandlers,
+} from "@thebes/cadmus/astro";
 import { db } from "@thebes/cadmus/db";
-import { checkRateLimit } from "@thebes/cadmus/rate-limit";
+import type { APIContext } from "astro";
 import { eq } from "drizzle-orm";
+import type { Context } from "hono";
 import { Hono } from "hono";
-import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { generateCookie, getCookie } from "hono/cookie";
 
 export const api = new Hono<{ Bindings: Env }>();
+
+type UserRow = typeof users.$inferSelect;
+
+// createMagicLinkHandlers/createLogoutHandler's option callbacks all take
+// an APIContext, so env bindings have to travel through that object rather
+// than through a closure over Hono's `c` — buildAstroContext() stows them on
+// this extra `env` field rather than guessing at @astrojs/cloudflare's
+// `locals.runtime.env` convention, since this Worker never actually runs
+// through that adapter for these routes (see the module comment above).
+type SiteAPIContext = APIContext & { env: Env };
+
+function envOf(context: APIContext): Env {
+  return (context as SiteAPIContext).env;
+}
+
+const LOGIN_PATH = "/login";
+
+// createMagicLinkHandlers' GET handler only ever calls context.redirect()
+// with one of two shapes: `${LOGIN_PATH}?error=...` on failure (same
+// Worker — the login page lives here), or the post-verify destination on
+// success, which for this app always means Worker 2's (Cadmea) admin —
+// see CLAUDE.md "Cookie domain"/"Authentication". The library has no hook
+// to tell these apart itself, so this distinguishes on the one fixed
+// prefix it's configured to use for the failure case below.
+function siteRedirect(c: Context<{ Bindings: Env }>, path: string): Response {
+  const location = path.startsWith(LOGIN_PATH)
+    ? path
+    : new URL(path, c.env.CADMEA_URL).toString();
+  return new Response(null, { status: 302, headers: { Location: location } });
+}
+
+// Astro's real cookie jar writes Set-Cookie headers into the Response its
+// own rendering pipeline builds — a mechanism that doesn't exist here,
+// since these handlers return a plain Response straight to Hono.
+// setCookie(c, ...)'s usual approach of writing through c.header() doesn't
+// help either: it only lands if something has already forced Hono's
+// lazily-created c.res into existence, which a handler that returns its
+// own raw Response (every path here) never does. So cookies.set/delete
+// below just collect Set-Cookie strings, and runAstroRoute() appends them
+// onto the handler's returned Response itself once it comes back.
+function buildAstroContext(
+  c: Context<{ Bindings: Env }>,
+  cookieHeaders: string[],
+): APIContext {
+  return {
+    request: c.req.raw,
+    url: new URL(c.req.url),
+    env: c.env,
+    cookies: {
+      get: (name: string) => {
+        const value = getCookie(c, name);
+        return value === undefined ? undefined : { value };
+      },
+      set: (
+        name: string,
+        value: string,
+        options?: {
+          httpOnly?: boolean;
+          secure?: boolean;
+          sameSite?: "lax" | "strict" | "none";
+          path?: string;
+          maxAge?: number;
+        },
+      ) => {
+        cookieHeaders.push(generateCookie(name, value, options));
+      },
+      delete: (name: string, options?: { path?: string }) => {
+        cookieHeaders.push(generateCookie(name, "", { ...options, maxAge: 0 }));
+      },
+    },
+    redirect: (path: string) => siteRedirect(c, path),
+    locals: {},
+  } as unknown as APIContext;
+}
+
+async function runAstroRoute(
+  c: Context<{ Bindings: Env }>,
+  handler: (context: APIContext) => Response | Promise<Response>,
+): Promise<Response> {
+  const cookieHeaders: string[] = [];
+  const response = await handler(buildAstroContext(c, cookieHeaders));
+  if (cookieHeaders.length === 0) return response;
+
+  const merged = new Response(response.body, response);
+  for (const cookie of cookieHeaders)
+    merged.headers.append("Set-Cookie", cookie);
+  return merged;
+}
+
+const requestHostname = (context: APIContext) => context.url.hostname;
+
+// See CLAUDE.md "Authentication" — dev mode logs the raw link instead of
+// relying on email delivery. wrangler dev's local send_email emulation
+// doesn't fail the way an unconfigured production domain would (it just
+// writes an .eml file to disk), so sendMagicLinkEmail's own success/failure
+// isn't a reliable dev signal; `localhost` is, since no deployed
+// environment is ever literally that.
+function isLocalDev(context: APIContext): boolean {
+  const hostname = requestHostname(context);
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+const { POST: magicLinkPOST, GET: verifyGET } =
+  createMagicLinkHandlers<UserRow>({
+    kv: (context) => envOf(context).KV,
+    secret: (context) => envOf(context).SESSION_SECRET,
+    cookieName: "cadmea_session",
+    loginPath: LOGIN_PATH,
+    findUser: async (context, email) => {
+      const env = envOf(context);
+      const user = await db(env.DB, { users })
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .get();
+      return user ?? null;
+    },
+    createSession: (context, user) =>
+      createCoreSession(envOf(context).SESSION, {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      }),
+    sendMagicLinkEmail: async (context, { email, verifyUrl }) => {
+      const env = envOf(context);
+      await sendEmail(env, {
+        from: `noreply@${requestHostname(context)}`,
+        to: email,
+        subject: "Your Cadmea sign-in link",
+        html: `<p>Click to sign in: <a href="${verifyUrl.toString()}">${verifyUrl.toString()}</a></p><p>This link expires in 15 minutes.</p>`,
+      });
+    },
+    isLocalDev,
+    onLocalDev: (_context, { email, verifyUrl }) => {
+      console.log(`[dev] Magic link for ${email}: ${verifyUrl.toString()}`);
+    },
+    defaultRedirect: (context) =>
+      new URL("/admin/dashboard", envOf(context).CADMEA_URL).toString(),
+  });
+
+const logoutPOST = createLogoutHandler({
+  cookieName: "cadmea_session",
+  deleteSession: (context, sessionId) =>
+    deleteCoreSession(envOf(context).SESSION, sessionId),
+  redirectTo: LOGIN_PATH,
+});
 
 api.use("*", securityHeaders);
 
@@ -45,69 +202,12 @@ api.post("/api/cadmea-test", async (c) => {
 
 // Magic-link request — see CLAUDE.md "Authentication". Never confirms or
 // denies whether the email belongs to an account; always returns 200, so
-// the request can't be used to enumerate registered emails.
-api.post("/api/auth/magic-link", async (c) => {
-  const body = await c.req
-    .json<{ email?: string; redirect?: string }>()
-    .catch(() => null);
-  const email = body?.email?.trim().toLowerCase();
-  if (!email) return c.json({ ok: true });
-
-  // Only allow a same-origin relative path — anything else (a protocol-
-  // relative "//host/..." or absolute URL) could turn this into an open
-  // redirect.
-  const redirect =
-    body?.redirect?.startsWith("/") && !body.redirect.startsWith("//")
-      ? body.redirect
-      : null;
-
-  const { allowed } = await checkRateLimit(
-    c.env.KV,
-    `ratelimit:magiclink:${email}`,
-    3,
-    15 * 60,
-  );
-  if (!allowed) return c.json({ ok: true });
-
-  const user = await db(c.env.DB, { users })
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .get();
-
-  if (user) {
-    const { token } = await createMagicLinkToken(c.env.KV, email);
-    const verifyUrl = new URL("/api/auth/verify", c.req.url);
-    verifyUrl.searchParams.set("token", token);
-    if (redirect) verifyUrl.searchParams.set("redirect", redirect);
-
-    const requestHostname = new URL(c.req.url).hostname;
-    // wrangler dev's local send_email emulation doesn't fail the way an
-    // unconfigured production domain would (it just writes an .eml file
-    // to disk) — sendEmail()'s success/failure isn't a reliable dev
-    // signal. `localhost` is, though: no deployed environment is ever
-    // literally "localhost". See CLAUDE.md "Authentication" — dev mode
-    // logs the raw link instead of relying on email delivery.
-    const isLocalDev =
-      requestHostname === "localhost" || requestHostname === "127.0.0.1";
-
-    if (isLocalDev) {
-      console.log(`[dev] Magic link for ${email}: ${verifyUrl.toString()}`);
-    } else {
-      await sendEmail(c.env, {
-        from: `noreply@${requestHostname}`,
-        to: email,
-        subject: "Your Cadmea sign-in link",
-        html: `<p>Click to sign in: <a href="${verifyUrl.toString()}">${verifyUrl.toString()}</a></p><p>This link expires in 15 minutes.</p>`,
-      });
-    }
-  }
-
-  return c.json({ ok: true });
-});
+// the request can't be used to enumerate registered emails. Delegates to
+// @thebes/cadmus/astro's handler — see the module comment above.
+api.post("/api/auth/magic-link", (c) => runAstroRoute(c, magicLinkPOST));
 
 // Magic-link verification — single use, hashed lookup, KV-retry-aware
-// (see core/lib/auth.ts). On success, creates a session and redirects
+// (see @thebes/cadmus/astro). On success, creates a session and redirects
 // cross-Worker into Worker 2's (Cadmea) /admin/dashboard.
 //
 // Known limitation (CLAUDE.md "Cookie domain"): on *.workers.dev, Worker
@@ -116,44 +216,7 @@ api.post("/api/auth/magic-link", async (c) => {
 // Worker 2 in that environment. Works on localhost (cookies don't scope
 // by port) and will work in production once both Workers share a custom
 // domain — untested against a real custom domain yet.
-api.get("/api/auth/verify", async (c) => {
-  const token = c.req.query("token");
-  if (!token) return c.redirect("/login?error=invalid");
-
-  const result = await verifyMagicLinkToken(c.env.KV, token);
-  if (!result) return c.redirect("/login?error=invalid");
-
-  const user = await db(c.env.DB, { users })
-    .select()
-    .from(users)
-    .where(eq(users.email, result.email))
-    .get();
-  if (!user) return c.redirect("/login?error=unauthorized");
-
-  const { sessionId } = await createSession(c.env.SESSION, {
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-  });
-  const cookieValue = await signSessionCookie(sessionId, c.env.SESSION_SECRET);
-
-  setCookie(c, "cadmea_session", cookieValue, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-
-  // Same open-redirect guard as /api/auth/magic-link — this query param
-  // isn't signed alongside the token, so it must be re-validated here too.
-  const requestedRedirect = c.req.query("redirect");
-  const redirectTo =
-    requestedRedirect?.startsWith("/") && !requestedRedirect.startsWith("//")
-      ? requestedRedirect
-      : "/admin/dashboard";
-  return c.redirect(new URL(redirectTo, c.env.CADMEA_URL).toString());
-});
+api.get("/api/auth/verify", (c) => runAstroRoute(c, verifyGET));
 
 // Live preview (issue #28) — renders a draft version behind a signed,
 // time-limited token instead of the published row [slug].astro reads. A
@@ -200,16 +263,9 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// Logout — clears the session both in KV and the browser cookie.
-api.post("/api/auth/logout", async (c) => {
-  const cookieValue = getCookie(c, "cadmea_session");
-  if (cookieValue) {
-    const [sessionId] = cookieValue.split(".");
-    if (sessionId) await deleteSession(c.env.SESSION, sessionId);
-  }
-  deleteCookie(c, "cadmea_session", { path: "/" });
-  return c.redirect("/login");
-});
+// Logout — clears the session both in KV and the browser cookie. Delegates
+// to @thebes/cadmus/astro's handler — see the module comment above.
+api.post("/api/auth/logout", (c) => runAstroRoute(c, logoutPOST));
 
 // Default export lets tests/int run this directly as a `main` Worker
 // (via SELF.fetch) without Astro's Vite plugin — see app.ts for the real

@@ -1,6 +1,11 @@
-// Magic-link token issuance/verification and session-cookie signing —
-// This app's wiring on top of the generic @thebes/cadmus/auth
-// primitives. See CLAUDE.md "Authentication" for the full flow.
+// Magic-link token issuance, preview tokens, and session-cookie
+// verification — this app's wiring on top of the generic
+// @thebes/cadmus/auth primitives. See CLAUDE.md "Authentication" for the
+// full flow. Magic-link verification and session-cookie signing now live
+// in @thebes/cadmus/astro's createMagicLinkHandlers, wired up in
+// app/workers/site/src/api.ts (issue #33) — createMagicLinkToken stays
+// here because tests/int/auth.test.ts still uses it directly to seed a
+// real token ahead of exercising the verify route over HTTP.
 import {
   generateToken,
   hashToken,
@@ -26,31 +31,6 @@ export async function createMagicLinkToken(
     expirationTtl: MAGIC_LINK_TTL_SECONDS,
   });
   return { token };
-}
-
-/**
- * Hashes the raw token and validates it against the stored KV hash;
- * deletes the entry on success (single use). Retries the KV read once
- * (G3: KV is eventually consistent, and this often runs moments after
- * createMagicLinkToken wrote the entry on a different edge location).
- */
-export async function verifyMagicLinkToken(
-  kv: KVNamespace,
-  token: string,
-): Promise<{ email: string } | null> {
-  const hash = await hashToken(token);
-  const key = `${MAGIC_LINK_KEY_PREFIX}${hash}`;
-
-  let email: string | null = null;
-  for (let attempt = 0; attempt <= 2; attempt++) {
-    email = await kv.get(key);
-    if (email !== null) break;
-    if (attempt < 2) await new Promise((r) => setTimeout(r, 100));
-  }
-  if (email === null) return null;
-
-  await kv.delete(key);
-  return { email };
 }
 
 const PREVIEW_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
@@ -107,20 +87,9 @@ export async function verifyPreviewToken(
 }
 
 /**
- * HMAC-signs a session ID into the `{value}.{signature}` cookie format
- * middleware.ts parses.
- */
-export async function signSessionCookie(
-  value: string,
-  secret: string,
-): Promise<string> {
-  const signature = await signSession(value, secret);
-  return `${value}.${signature}`;
-}
-
-/**
  * Verifies an HMAC-signed session cookie value, returning the session ID
- * if valid.
+ * if valid. Signing the cookie on the way in is now @thebes/cadmus/astro's
+ * createMagicLinkHandlers' job — see app/workers/site/src/api.ts.
  */
 export async function verifySessionCookie(
   signed: string,

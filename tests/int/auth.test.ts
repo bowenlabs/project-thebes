@@ -58,9 +58,16 @@ describe("magic-link auth", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
 
-    // No token issued for an unknown email — nothing written to KV.
+    // No token issued for an unknown email — nothing written to KV under
+    // the magic-link token prefix. @thebes/cadmus/astro's rate limiter
+    // does write its own counter under "magiclink:ratelimit:" regardless
+    // of whether the email is known, so that key is excluded here rather
+    // than asserting an empty "magiclink:" prefix outright.
     const keys = await env.KV.list({ prefix: "magiclink:" });
-    expect(keys.keys).toHaveLength(0);
+    const tokenKeys = keys.keys.filter(
+      (key) => !key.name.startsWith("magiclink:ratelimit:"),
+    );
+    expect(tokenKeys).toHaveLength(0);
   });
 });
 
