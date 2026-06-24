@@ -18,8 +18,8 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
+    "build": "vp pack",
+    "dev": "vp pack --watch",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -45,9 +45,9 @@
     "@babel/core": "^7.28.0",
     "@rolldown/plugin-babel": "^0.2.3",
     "babel-preset-solid": "^1.9.12",
-    "tsdown": "latest",
     "typescript": "latest",
     "vite-plugin-solid": "latest",
+    "vite-plus": "latest",
     "vitest": "latest"
   },
   "files": [

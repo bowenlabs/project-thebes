@@ -69,8 +69,8 @@
     }
   },
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
+    "build": "vp pack",
+    "dev": "vp pack --watch",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -86,8 +86,8 @@
     "@cloudflare/vitest-pool-workers": "latest",
     "@cloudflare/workers-types": "latest",
     "hono": "latest",
-    "tsdown": "latest",
     "typescript": "latest",
+    "vite-plus": "latest",
     "vitest": "latest"
   },
   "files": [

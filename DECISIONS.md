@@ -9,6 +9,54 @@
 
 ---
 
+## 2026-06-24 — Migrated `packages/cadmus`/`packages/cadmea` packaging from `tsdown.config.ts` to `vp pack` (follow-up to the correction entry below)
+
+**Context:** the correction entry below confirmed `vp pack` correctly
+compiles Solid JSX once configured via the documented surface — a `pack`
+block in `vite.config.ts` — rather than a standalone `tsdown.config.ts`.
+With that confirmed, moved both packages onto `vp pack` for real, since
+there's no remaining reason to bypass Vite+'s own wrapper once it's known
+to work. Scope is packaging only — `vp lint`/`vp fmt`/`vp test` as a Biome
+replacement remains a separate, explicitly deferred decision (see the
+"Explicitly deferred, not adopted" note in the 2026-06-23 entry below),
+not folded into this change.
+
+**What changed, mechanically:**
+- `packages/cadmus`: `tsdown.config.ts` → `vite.config.ts`'s `pack` block.
+  Same entry map, `format`, `dts`, `sourcemap`, `clean`, `target`,
+  `platform`, and `deps.neverBundle` as before — a direct port, not a
+  redesign. `package.json`'s `build`/`dev` scripts changed from
+  `tsdown`/`tsdown --watch` to `vp pack`/`vp pack --watch`; `tsdown`
+  dropped from `devDependencies`, `vite-plus` added.
+- `packages/cadmea`: same port, but `pack` takes an array (vite-plus's
+  `PackUserConfig | PackUserConfig[]`) — the same four-build shape
+  (`index`/`tanstack-start` × dom/ssr codegen) the old `tsdown.config.ts`
+  array used, including the `@rolldown/plugin-babel` +
+  `babel-preset-solid` wiring per build. Same script/dependency swap as
+  cadmus. `package.json`'s `exports` map is unchanged — still hand-
+  maintained, vite-plus has no package.json-writing preset either.
+- Output paths, `dist/` shape, and both packages' `exports` maps are
+  byte-for-byte unchanged — confirmed by inspecting `dist/` after
+  `pnpm build:cadmus`/`pnpm build:cadmea-pkg` and diffing against the
+  previous `tsdown`-direct output (`template()`/`insert()`/
+  `delegateEvents()` for cadmea's browser build, same as before).
+
+**Known friction hit during this migration, not a vite-plus bug:**
+`vp pack`'s `dts: true` requires `typescript` to be resolvable as its own
+package (the dts plugin does a bare `require('typescript')`), separate
+from whatever `tsdown` itself needs. Both packages already declared
+`typescript` as a `devDependency` for unrelated reasons, so this needed no
+fix here — but it's not mentioned in the `pack` docs and would bite a
+package that only had `typescript` as a transitive dependency.
+
+**Explicitly not done here:** closing issue #30 (tracked as "the
+Void/Vite+/Rolldown migration" per `CADMEA.md`'s native-split section) —
+that issue's scope may be broader than this packaging swap; leaving it to
+the operator to close once they confirm nothing else is pending against
+it.
+
+---
+
 ## 2026-06-24 — Correction: `vp pack` does compile Solid correctly (follow-up to the 2026-06-23 entry below)
 
 **Context:** the 2026-06-23 entry's "`vp pack` — rejected, confirmed broken
@@ -32,11 +80,10 @@ read from `vite.config.ts`), unlike the original spike's CLI-arg run.
 **Conclusion:** there is no vite-plus bug here — nothing was filed
 upstream. The 2026-06-23 entry's "confirmed broken"/"worth filing
 upstream" language is superseded by this finding; left in place below for
-history rather than rewritten. The decision to adopt `tsdown` directly for
-`packages/cadmus`/`packages/cadmea` stands as-is for now — whether to move
-to `vp pack` instead is a separate, larger call (also touches the
-already-deferred Biome-vs-Oxlint-via-`vp lint`/`fmt` decision) and isn't
-made by this correction alone.
+history rather than rewritten. Migrating `packages/cadmus`/`packages/cadmea`
+off the hand-rolled `tsdown.config.ts` onto `vp pack` was made as a
+follow-up, separate from this correction itself — see the entry above
+this one.
 
 ---
 

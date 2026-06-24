@@ -121,13 +121,14 @@ packages/cadmea/
 │   │   ├── edit.tsx             ← createCollectionEditPage
 │   │   └── index.ts
 │   └── index.ts
-├── dist/                        ← tsdown + @rolldown/plugin-babel +
+├── dist/                        ← vp pack (Vite+) + @rolldown/plugin-babel +
 │                                  babel-preset-solid output (server/browser/
 │                                  worker/node/deno) — see DECISIONS.md
-│                                  2026-06-23 entry superseding 2026-06-22
+│                                  2026-06-24 entry
 ├── package.json                 ← name: "@thebes/cadmea", exports map is
 │                                  hand-maintained (no preset writes it now)
-├── tsdown.config.ts
+├── vite.config.ts                ← build config (`pack` array, one per
+│                                  server/browser target)
 └── README.md                    ← npm-facing install/usage docs
 
 app/

@@ -94,8 +94,8 @@ thebes/
 │   │   │   ├── hono/            ← thin Hono wrappers over raw primitives
 │   │   │   ├── errors.ts        ← CadmusError base class + typed subtypes
 │   │   │   └── index.ts         ← re-exports all primitives
-│   │   ├── dist/                ← tsdown output (ESM + CJS + .d.ts) — gitignored
-│   │   ├── tsdown.config.ts     ← build config
+│   │   ├── dist/                ← vp pack (Vite+) output (ESM + CJS + .d.ts) — gitignored
+│   │   ├── vite.config.ts       ← build config (`pack` block — see DECISIONS.md 2026-06-24)
 │   │   ├── package.json         ← name: "@thebes/cadmus", exports map
 │   │   └── README.md
 │   │
@@ -108,13 +108,13 @@ thebes/
 │       │                          route-mounting helper (createCollectionListPage/
 │       │                          CreatePage/EditPage), the equivalent of
 │       │                          @payloadcms/next's catch-all route pattern
-│       ├── tsdown.config.ts     ← tsdown + @rolldown/plugin-babel +
-│       │                          babel-preset-solid — real server/browser/
-│       │                          worker/node/deno build (see DECISIONS.md
-│       │                          2026-06-23 entry superseding 2026-06-22),
+│       ├── vite.config.ts       ← vp pack (Vite+) `pack` array + @rolldown/
+│       │                          plugin-babel + babel-preset-solid — real
+│       │                          server/browser/worker/node/deno build
+│       │                          (see DECISIONS.md 2026-06-24 entry),
 │       │                          not source-only like the package started as
 │       ├── package.json         ← name: "@thebes/cadmea"; exports map is
-│       │                          now hand-maintained (tsdown has no
+│       │                          now hand-maintained (vp pack has no
 │       │                          package.json-writing preset the way
 │       │                          tsup-preset-solid did)
 │       └── README.md
@@ -225,10 +225,10 @@ force a library onto an axis.
 | Layer | Technology |
 |-------|-----------|
 | Framework | **@thebes/cadmus** — V8-first CF primitives |
-| Framework build | **tsdown** → `dist/` (ESM + CJS + `.d.ts`) — see DECISIONS.md 2026-06-23 entry superseding 2026-06-22 |
+| Framework build | **Vite+'s `vp pack`** (Rolldown-based, wraps tsdown) → `dist/` (ESM + CJS + `.d.ts`), configured via a `pack` block in `vite.config.ts` — see DECISIONS.md 2026-06-24 entry |
 | Public site SSR | **Astro** with `@astrojs/cloudflare` adapter — Worker 1. Astro is Cadmus's officially recommended frontend; a peer-integration layer (`@thebes/cadmus/astro`, #32, blocked by #30) is planned but not built yet — see CADMUS.md design philosophy point 4 |
 | CMS engine | **@thebes/cadmus/cms** — collections, fields, schema codegen, Local API, admin-UI introspection metadata |
-| CMS admin UI components | **@thebes/cadmea** — generic SolidJS list/edit views, driven by the engine's admin metadata; built with `tsdown` + `@rolldown/plugin-babel` + `babel-preset-solid` (see DECISIONS.md 2026-06-23 entry superseding 2026-06-22) |
+| CMS admin UI components | **@thebes/cadmea** — generic SolidJS list/edit views, driven by the engine's admin metadata; built with **Vite+'s `vp pack`** + `@rolldown/plugin-babel` + `babel-preset-solid` (see DECISIONS.md 2026-06-24 entry) |
 | CMS route-mounting helper | **@thebes/cadmea/tanstack-start** — factory functions wiring the UI components to `@tanstack/solid-query`, the equivalent of `@payloadcms/next`'s catch-all route pattern |
 | CMS admin | **TanStack Start** (Solid target) — Worker 2, VMFE architecture |
 | CMS data fetching | **@tanstack/solid-query** — server state, API communication |
@@ -657,7 +657,7 @@ pnpm dev:site         # wrangler dev in app/workers/site/ — :3000
 pnpm dev:cadmea        # wrangler dev in app/workers/cadmea/ — :3001
 pnpm dev              # both Workers via concurrently
 
-pnpm build:cadmus     # tsdown → packages/cadmus/dist/
+pnpm build:cadmus     # vp pack (Vite+) → packages/cadmus/dist/
 pnpm build:site       # astro build
 pnpm build:cadmea     # vite build
 pnpm build            # cadmus → site → cadmea (in order)
@@ -710,7 +710,7 @@ If yes to any: flag it before proceeding.
 - **Raw bindings:** Primitives accept `D1Database`, `KVNamespace` etc. directly — not `Env` or Hono `Context`. Explicit is better than magic.
 - **Thrown errors:** `CadmusError` and typed subclasses. Never raw `Error`. Never Result types.
 - **Hono is a peer, not a dependency:** `@thebes/cadmus/hono` wraps raw primitives — it never reimplements them.
-- **tsdown builds dist/:** The exports map points at `dist/`. TypeScript source is for development only. CI validates both. `packages/cadmea`'s build also wires `@rolldown/plugin-babel` + `babel-preset-solid` directly (not Vite+'s `vp pack`, which doesn't load `tsdown.config.ts` and has no Solid JSX support — see DECISIONS.md 2026-06-23).
+- **`vp pack` (Vite+) builds dist/:** The exports map points at `dist/`. TypeScript source is for development only. CI validates both. Packaging config lives in each package's `vite.config.ts` `pack` block, not a standalone `tsdown.config.ts` — Vite+ explicitly doesn't read the latter (see DECISIONS.md 2026-06-24). `packages/cadmea`'s `pack` block also wires `@rolldown/plugin-babel` + `babel-preset-solid` directly for Solid JSX.
 - **Mobile-first CMS:** Cadmea is designed for phones and tablets first. Desktop is an enhancement. Bottom navigation, full-screen views, tap-to-reorder. Never retrofit a desktop UI for mobile.
 - **SolidJS, not React:** CMS UI is built in SolidJS — fine-grained reactivity, no virtual DOM, minimal compiled payload for fast cold starts in V8 isolates. Use `createSignal`/`createEffect`, not React hooks. When a dependency has no official Solid package (e.g. Phosphor icons), prefer the framework-agnostic build over an unofficial community port.
 - **Scale-appropriate:** Don't build for scale you don't have. No premature abstractions.
