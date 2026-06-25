@@ -762,7 +762,7 @@ both Workers' `.dev.vars` so `wrangler dev`'s emulated D1/KV/R2
 create real D1/KV/R2 resources, configure a custom domain, or do anything
 else an operator deploying their own site needs — this repo isn't that
 operator's fork target (see README.md's "bigger picture" section; that's
-the separate `bowenlabs-template` repo). Idempotent and non-destructive:
+the separate `thebes-web` repo). Idempotent and non-destructive:
 skips any `.dev.vars` file that already exists rather than overwriting it.
 
 ---

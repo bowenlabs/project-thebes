@@ -661,6 +661,19 @@ pipeline rebuilds packages before Workers, so it doesn't recur from clean.
 
 ---
 
+## 2026-06-25 — Fork-target repo named: `bowenlabs-template` → `thebes-web`
+
+**Decision:** The fork-target repo planned in the 2026-06-22 entry below
+(and in README.md's "bigger picture" section) is now named `thebes-web`,
+scaffolded as a real two-Worker repo consuming the published `@thebes/*`
+packages — `bowenlabs-template` was a placeholder name, not a committed
+one. No topology change: still the one repo outside this monorepo that
+operators fork from, alongside `citadel-tooling`. Updated the placeholder
+name in README.md and CLAUDE.md to match. Same naming-isn't-load-bearing
+pattern as Salvation→Thebes (2026-06-23) and Citadel→Cadmea (2026-06-22).
+
+---
+
 ## 2026-06-22 — Section 2 opens: two-axis extension model, published from one monorepo
 
 **Decision:** Section 2 begins by giving Thebes a real extension architecture —

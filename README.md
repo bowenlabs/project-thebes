@@ -74,7 +74,7 @@ third pattern, not a new top-level axis. See **[EXTENDING.md](./EXTENDING.md)**.
 first-party extensions, the docs site, the reference app, and the examples, and
 it publishes the `@thebes/*` packages to npm. Two things live *outside* it:
 
-- **`bowenlabs-template`** — the fork target (Cloudflare deploy button) a client
+- **`thebes-web`** — the fork target (Cloudflare deploy button) a client
   site is built from. It consumes the published packages and holds that site's
   `cadmea.config.ts` and `custom/`.
 - **`citadel-tooling`** — the Go orchestrator that provisions Cloudflare
