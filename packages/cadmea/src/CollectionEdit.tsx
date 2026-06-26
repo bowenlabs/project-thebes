@@ -271,7 +271,12 @@ function renderInput(
   ctx: RenderContext,
 ) {
   // A registered custom widget wins over the generic type-based input (#17).
-  const Widget = ctx.fieldWidgets?.[key];
+  // Match by the full key, or by the trailing field name so a widget can
+  // target a field nested inside an `array` item (whose key is a path like
+  // `blocks.0.url`) without knowing the index.
+  const Widget =
+    ctx.fieldWidgets?.[key] ??
+    ctx.fieldWidgets?.[key.slice(key.lastIndexOf(".") + 1)];
   if (Widget) {
     return (
       <Widget

@@ -1,5 +1,11 @@
 # @thebes/cadmea
 
+## 1.1.1
+
+### Patch Changes
+
+- fieldWidgets now also match by trailing field name, so a widget (e.g. ImageHotspotField) can target a field nested inside an array item (key path `blocks.0.url`) by registering it under the bare name (`url`).
+
 ## 1.1.0
 
 ### Minor Changes
