@@ -1,5 +1,11 @@
 # @thebes/cadmea
 
+## 1.1.0
+
+### Minor Changes
+
+- Studio UI for Phase 4: per-field `fieldWidgets` override on CollectionEdit + a built-in `ImageHotspotField` image hotspot/crop picker (#17), and `VisualEditingPane` click-to-edit preview iframe (#15).
+
 ## 1.0.0
 
 ### Patch Changes
