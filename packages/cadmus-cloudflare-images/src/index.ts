@@ -14,7 +14,12 @@
 //   import { createCloudflareImageService } from "@thebes/cadmus-cloudflare-images";
 //   const images = createCloudflareImageService({ bucket: env.R2, mediaUrl: env.MEDIA_URL });
 
-import type { ImageService, RenderedImage } from "@thebes/cadmus/storage";
+import type {
+  ImageCrop,
+  ImageHotspot,
+  ImageService,
+  RenderedImage,
+} from "@thebes/cadmus/storage";
 import { validateImageFile } from "@thebes/cadmus/storage";
 
 export interface CloudflareImagesOptions {
@@ -43,16 +48,56 @@ function safeExtension(filename: string): string {
   return match ? `.${match[1].toLowerCase()}` : "";
 }
 
+const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
+
+/**
+ * Image hotspot/crop (issue #17) → Cloudflare Image Resizing params:
+ * - hotspot → `gravity=<x>x<y>` (the focal point cover-crops favor) + the
+ *   `fit=cover` needed for gravity to take effect.
+ * - crop region → `trim=<top>;<right>;<bottom>;<left>` in source pixels
+ *   (Cloudflare's edge-trim form), computed from the normalized insets and
+ *   the source dimensions. Skipped when `sourceWidth`/`sourceHeight` are
+ *   absent — hotspot still applies.
+ */
+function focalParams(opts: {
+  hotspot?: ImageHotspot;
+  crop?: ImageCrop;
+  sourceWidth?: number;
+  sourceHeight?: number;
+}): string[] {
+  const params: string[] = [];
+  if (opts.hotspot) {
+    params.push(
+      `gravity=${clamp01(opts.hotspot.x)}x${clamp01(opts.hotspot.y)}`,
+    );
+    params.push("fit=cover");
+  }
+  if (opts.crop && opts.sourceWidth && opts.sourceHeight) {
+    const top = Math.round(clamp01(opts.crop.top) * opts.sourceHeight);
+    const right = Math.round(clamp01(opts.crop.right) * opts.sourceWidth);
+    const bottom = Math.round(clamp01(opts.crop.bottom) * opts.sourceHeight);
+    const left = Math.round(clamp01(opts.crop.left) * opts.sourceWidth);
+    params.push(`trim=${top};${right};${bottom};${left}`);
+  }
+  return params;
+}
+
 /** Builds a Cloudflare Image Resizing URL:
  *  `${deliveryUrl}/cdn-cgi/image/<options>/<source>`. */
 function transformUrl(
   deliveryUrl: string,
   source: string,
-  opts: { width?: number; height?: number; quality: number },
+  opts: {
+    width?: number;
+    height?: number;
+    quality: number;
+    extra?: string[];
+  },
 ): string {
   const params = [`format=auto`, `quality=${opts.quality}`];
   if (opts.width) params.push(`width=${opts.width}`);
   if (opts.height) params.push(`height=${opts.height}`);
+  if (opts.extra) params.push(...opts.extra);
   return `${deliveryUrl}/cdn-cgi/image/${params.join(",")}/${source}`;
 }
 
@@ -85,12 +130,23 @@ export function createCloudflareImageService(
       return { url: `${mediaUrl}/${key}` };
     },
 
-    render({ url, width, height }): RenderedImage {
+    render({
+      url,
+      width,
+      height,
+      hotspot,
+      crop,
+      sourceWidth,
+      sourceHeight,
+    }): RenderedImage {
+      // Focal point / crop region (issue #17) applied to every rendition.
+      const extra = focalParams({ hotspot, crop, sourceWidth, sourceHeight });
       const largest = widths[widths.length - 1];
       const src = transformUrl(deliveryUrl, url, {
         width: width ?? largest,
         height,
         quality,
+        extra,
       });
       // A fixed width/height pins the rendition, so a srcset would be
       // misleading — emit just the single transformed src.
@@ -100,7 +156,7 @@ export function createCloudflareImageService(
       const srcset = widths
         .map(
           (w) =>
-            `${transformUrl(deliveryUrl, url, { width: w, quality })} ${w}w`,
+            `${transformUrl(deliveryUrl, url, { width: w, quality, extra })} ${w}w`,
         )
         .join(", ");
       return { src, srcset, sizes };

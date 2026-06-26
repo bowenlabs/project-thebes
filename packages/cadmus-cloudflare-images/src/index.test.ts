@@ -95,3 +95,62 @@ describe("createCloudflareImageService — upload", () => {
     expect(put).not.toHaveBeenCalled();
   });
 });
+
+describe("createCloudflareImageService — hotspot/crop (#17)", () => {
+  it("applies a hotspot as gravity + fit=cover", () => {
+    const { src } = service().render({
+      url: ORIGINAL,
+      alt: "x",
+      width: 400,
+      height: 300,
+      hotspot: { x: 0.7, y: 0.3 },
+    });
+    expect(src).toContain("gravity=0.7x0.3");
+    expect(src).toContain("fit=cover");
+  });
+
+  it("clamps hotspot coordinates into 0–1", () => {
+    const { src } = service().render({
+      url: ORIGINAL,
+      alt: "x",
+      width: 100,
+      hotspot: { x: 1.8, y: -0.4 },
+    });
+    expect(src).toContain("gravity=1x0");
+  });
+
+  it("applies a crop region as trim (edge pixels) when source dims are given", () => {
+    const { src } = service().render({
+      url: ORIGINAL,
+      alt: "x",
+      width: 100,
+      crop: { top: 0.1, right: 0.2, bottom: 0, left: 0 },
+      sourceWidth: 1000,
+      sourceHeight: 800,
+    });
+    // top=0.1*800=80, right=0.2*1000=200, bottom=0, left=0
+    expect(src).toContain("trim=80;200;0;0");
+  });
+
+  it("ignores crop without source dimensions (hotspot still applies)", () => {
+    const { src } = service().render({
+      url: ORIGINAL,
+      alt: "x",
+      width: 100,
+      height: 100,
+      crop: { top: 0.1, right: 0, bottom: 0, left: 0 },
+      hotspot: { x: 0.5, y: 0.2 },
+    });
+    expect(src).not.toContain("trim=");
+    expect(src).toContain("gravity=0.5x0.2");
+  });
+
+  it("carries focal params across every srcset entry", () => {
+    const out = service({ widths: [320, 640] }).render({
+      url: ORIGINAL,
+      alt: "x",
+      hotspot: { x: 0.5, y: 0.5 },
+    });
+    expect(out.srcset?.match(/gravity=0.5x0.5/g)?.length).toBe(2);
+  });
+});

@@ -18,6 +18,33 @@ export interface RenderedImage {
 }
 
 /**
+ * Focal point of an image (issue #17) — adopts Sanity's hotspot model.
+ * Normalized 0–1 coordinates; `{ x: 0.5, y: 0.5 }` is dead center. When a
+ * render crops (e.g. `fit=cover` to a fixed width/height), the focal point
+ * is kept in frame instead of the geometric center, so a subject near an
+ * edge isn't cut off.
+ */
+export interface ImageHotspot {
+  x: number;
+  y: number;
+}
+
+/**
+ * A crop region (issue #17), as normalized 0–1 insets from each edge —
+ * Sanity's crop model. `{ top: 0.1, bottom: 0, left: 0, right: 0.2 }` keeps
+ * the middle-left 70%×90% of the image. Applying a crop region needs the
+ * source's pixel dimensions (see the render input's `sourceWidth`/
+ * `sourceHeight`); without them an implementation should fall back to the
+ * hotspot alone.
+ */
+export interface ImageCrop {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
+/**
  * Resolved once per app and imported everywhere images are read or
  * written. Never construct storage URLs or `cdn-cgi/image/...` paths
  * inline — always go through an `ImageService`.
@@ -29,6 +56,13 @@ export interface ImageService {
     width?: number;
     height?: number;
     alt: string;
+    /** Focal point for cover-crops (issue #17). */
+    hotspot?: ImageHotspot;
+    /** Crop region (issue #17); needs `sourceWidth`/`sourceHeight` to apply. */
+    crop?: ImageCrop;
+    /** Source pixel dimensions — required to apply a `crop` region. */
+    sourceWidth?: number;
+    sourceHeight?: number;
   }) => RenderedImage;
 }
 
