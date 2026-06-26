@@ -1,10 +1,10 @@
-import type { CollectionConfig, FieldConfig } from "@thebes/cadmus/cms";
 import {
   type ColumnDef,
   createSolidTable,
   flexRender,
   getCoreRowModel,
 } from "@tanstack/solid-table";
+import type { CollectionConfig, FieldConfig } from "@thebes/cadmus/cms";
 import { createSignal, For, Show } from "solid-js";
 
 type Row = Record<string, unknown>;
@@ -256,7 +256,9 @@ export function CollectionList(props: CollectionListProps) {
                       onClick={(e) => e.stopPropagation()}
                       checked={
                         rowId(row.original) !== undefined &&
-                        (props.selectedIds?.has(rowId(row.original) as number) ??
+                        (props.selectedIds?.has(
+                          rowId(row.original) as number,
+                        ) ??
                           false)
                       }
                       onChange={() => {

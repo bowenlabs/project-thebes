@@ -1,6 +1,6 @@
+import { createForm } from "@tanstack/solid-form";
 import type { CollectionConfig, FieldConfig } from "@thebes/cadmus/cms";
 import { validateDocument } from "@thebes/cadmus/cms";
-import { createForm } from "@tanstack/solid-form";
 import {
   createEffect,
   createSignal,
@@ -402,7 +402,13 @@ function FieldsGrid(props: {
               !field.admin?.condition || field.admin.condition(props.values())
             }
           >
-            {renderField(props.form, props.ctx, key, field, labelFor(key, field))}
+            {renderField(
+              props.form,
+              props.ctx,
+              key,
+              field,
+              labelFor(key, field),
+            )}
           </Show>
         )}
       </For>
@@ -447,9 +453,7 @@ function renderField(
               (distributed to this field's meta by TanStack). */}
           <Show when={(fieldApi().state.meta.errors?.length ?? 0) > 0}>
             <p class="text-error mt-1 text-sm" role="alert">
-              {fieldApi()
-                .state.meta.errors.filter(Boolean)
-                .join(", ")}
+              {fieldApi().state.meta.errors.filter(Boolean).join(", ")}
             </p>
           </Show>
         </div>
@@ -553,7 +557,12 @@ function renderControl(
       );
     case "upload":
       return (
-        <UploadControl name={name} field={field} fieldApi={fieldApi} ctx={ctx} />
+        <UploadControl
+          name={name}
+          field={field}
+          fieldApi={fieldApi}
+          ctx={ctx}
+        />
       );
     case "relationship":
       return (
@@ -763,28 +772,31 @@ function RelationshipField(props: {
         </button>
       </Show>
       <Show when={open() && filtered().length > 0}>
-        <ul
+        {/* role="listbox"/"option" live on a div + button (not ul/li) so the
+            options are natively focusable interactive elements. */}
+        <div
           id={listId}
           role="listbox"
-          class="menu bg-base-100 border-base-300 rounded-box absolute z-10 mt-1 max-h-56 w-full overflow-auto border p-1 shadow"
+          class="bg-base-100 border-base-300 rounded-box absolute z-10 mt-1 flex max-h-56 w-full flex-col overflow-auto border p-1 shadow"
         >
           <For each={filtered()}>
             {(option, i) => (
-              <li role="option" aria-selected={selectedIds().includes(option.id)}>
-                <button
-                  type="button"
-                  classList={{ "bg-base-200": i() === active() }}
-                  // preventDefault keeps focus on the input so onClick fires
-                  // before the input's blur closes the list.
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => choose(option)}
-                >
-                  {option.label}
-                </button>
-              </li>
+              <button
+                type="button"
+                role="option"
+                aria-selected={selectedIds().includes(option.id)}
+                class="rounded px-3 py-2 text-left"
+                classList={{ "bg-base-200": i() === active() }}
+                // preventDefault keeps focus on the input so onClick fires
+                // before the input's blur closes the list.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(option)}
+              >
+                {option.label}
+              </button>
             )}
           </For>
-        </ul>
+        </div>
       </Show>
     </div>
   );
@@ -885,12 +897,13 @@ function BlockEditor(props: {
 
   return (
     <div class="form-control md:col-span-2">
-      <label class="label">
+      {/* A group heading for the block list, not a single-input label. */}
+      <div class="label font-medium">
         {props.label}
         <Show when={props.field.required}>
           <span class="text-error">{" *"}</span>
         </Show>
-      </label>
+      </div>
       <Show when={props.field.admin?.description}>
         <p class="text-base-content/60 mb-1 text-xs">
           {props.field.admin?.description}
@@ -1003,34 +1016,31 @@ function BlockEditor(props: {
               Add block
             </button>
             <Show when={menuOpen()}>
-              <ul
+              {/* role="menu"/"menuitem" on div + button (not ul/li) so the
+                  menu items are natively focusable interactive elements. */}
+              <div
                 role="menu"
-                class="menu bg-base-100 border-base-300 rounded-box absolute z-10 mt-1 border p-1 shadow"
+                class="bg-base-100 border-base-300 rounded-box absolute z-10 mt-1 flex flex-col border p-1 shadow"
               >
                 <For each={variants}>
                   {(variant) => (
-                    <li>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        class="gap-2"
-                        onClick={() => addBlock(variant)}
-                      >
-                        <Show when={disc?.variantsAdmin?.[variant]?.icon}>
-                          <i
-                            class={disc?.variantsAdmin?.[variant]?.icon}
-                            aria-hidden="true"
-                          />
-                        </Show>
-                        {variantLabel(
-                          disc as NonNullable<typeof disc>,
-                          variant,
-                        )}
-                      </button>
-                    </li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="flex items-center gap-2 rounded px-3 py-2 text-left"
+                      onClick={() => addBlock(variant)}
+                    >
+                      <Show when={disc?.variantsAdmin?.[variant]?.icon}>
+                        <i
+                          class={disc?.variantsAdmin?.[variant]?.icon}
+                          aria-hidden="true"
+                        />
+                      </Show>
+                      {variantLabel(disc as NonNullable<typeof disc>, variant)}
+                    </button>
                   )}
                 </For>
-              </ul>
+              </div>
             </Show>
           </div>
         </Show>

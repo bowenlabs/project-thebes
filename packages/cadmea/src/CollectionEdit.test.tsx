@@ -212,7 +212,9 @@ describe("CollectionEdit", () => {
     fireEvent.input(labelInputs[1], { target: { value: "Second" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[1]);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await vi.waitFor(() => expect(submitted).toEqual({ links: [{ label: "First" }] }));
+    await vi.waitFor(() =>
+      expect(submitted).toEqual({ links: [{ label: "First" }] }),
+    );
   });
 
   it("disables Save and shows a spinner while saving", () => {
@@ -411,7 +413,9 @@ describe("CollectionEdit — admin field metadata (A)", () => {
   it("uses admin.label over the humanized key", () => {
     const config: CollectionConfig = {
       slug: "pages",
-      fields: { metaDescription: { type: "text", admin: { label: "SEO blurb" } } },
+      fields: {
+        metaDescription: { type: "text", admin: { label: "SEO blurb" } },
+      },
     };
     render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
     expect(screen.getByLabelText("SEO blurb")).toBeInTheDocument();
@@ -421,7 +425,10 @@ describe("CollectionEdit — admin field metadata (A)", () => {
     const config: CollectionConfig = {
       slug: "pages",
       fields: {
-        title: { type: "text", admin: { description: "Shown in the browser tab" } },
+        title: {
+          type: "text",
+          admin: { description: "Shown in the browser tab" },
+        },
       },
     };
     render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
@@ -523,7 +530,9 @@ describe("CollectionEdit — visual block builder (B)", () => {
             hero: { heading: { type: "text", required: true } },
             text: { body: { type: "text" } },
           },
-          variantsAdmin: { hero: { label: "Hero banner", icon: "ph ph-image" } },
+          variantsAdmin: {
+            hero: { label: "Hero banner", icon: "ph ph-image" },
+          },
         },
       },
     },
