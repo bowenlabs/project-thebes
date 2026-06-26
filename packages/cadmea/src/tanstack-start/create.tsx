@@ -1,7 +1,7 @@
 import { createMutation, useQueryClient } from "@tanstack/solid-query";
 import type { CollectionConfig } from "@thebes/cadmus/cms";
 import { createSignal } from "solid-js";
-import { CollectionEdit } from "../CollectionEdit.js";
+import { CollectionEdit, type CollectionEditProps } from "../CollectionEdit.js";
 
 export interface CollectionCreatePageOptions<
   TCreated extends Record<string, unknown>,
@@ -17,6 +17,8 @@ export interface CollectionCreatePageOptions<
   onCreated?: (created: TCreated) => void;
   /** Forwarded to CollectionEdit — resolves an `upload` field's selected file to a stored URL. */
   onUploadFile?: (file: File) => Promise<{ url: string }>;
+  /** Per-field custom editor widgets (issue #17), keyed by field name — forwarded to CollectionEdit. */
+  fieldWidgets?: CollectionEditProps["fieldWidgets"];
 }
 
 /**
@@ -51,6 +53,7 @@ export function createCollectionCreatePage<
           error={error()}
           onSubmit={(values) => create.mutate(values)}
           onUploadFile={options.onUploadFile}
+          fieldWidgets={options.fieldWidgets}
         />
       </div>
     );

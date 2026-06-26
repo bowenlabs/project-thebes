@@ -6,7 +6,7 @@ import {
 import { useBlocker } from "@tanstack/solid-router";
 import type { CollectionConfig } from "@thebes/cadmus/cms";
 import { createSignal, Show } from "solid-js";
-import { CollectionEdit } from "../CollectionEdit.js";
+import { CollectionEdit, type CollectionEditProps } from "../CollectionEdit.js";
 import type { CollectionCapabilities } from "../capabilities.js";
 
 export interface CollectionEditDraftOptions {
@@ -48,6 +48,8 @@ export interface CollectionEditPageOptions {
   onDeleted?: () => void;
   /** Forwarded to CollectionEdit — resolves an `upload` field's selected file to a stored URL. */
   onUploadFile?: (file: File) => Promise<{ url: string }>;
+  /** Per-field custom editor widgets (issue #17), keyed by field name — forwarded to CollectionEdit. */
+  fieldWidgets?: CollectionEditProps["fieldWidgets"];
   /**
    * Renders "Save draft"/"Publish" instead of the generic Save button —
    * only meaningful when `collection.versions?.drafts` is also true (see
@@ -165,6 +167,7 @@ export function createCollectionEditPage(options: CollectionEditPageOptions) {
             saving={update.isPending}
             onSubmit={(values) => update.mutate(values)}
             onUploadFile={options.onUploadFile}
+            fieldWidgets={options.fieldWidgets}
             onDirtyChange={setDirty}
             capabilities={options.capabilities?.()}
             draftActions={

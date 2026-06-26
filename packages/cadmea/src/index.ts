@@ -1,8 +1,17 @@
-export type { CollectionEditProps } from "./CollectionEdit.js";
+export type { CollectionEditProps, FieldWidget } from "./CollectionEdit.js";
 export { CollectionEdit } from "./CollectionEdit.js";
 export type { CollectionListProps } from "./CollectionList.js";
 export { CollectionList } from "./CollectionList.js";
 export type { CollectionCapabilities } from "./capabilities.js";
+export type {
+  FieldWidgetProps,
+  ImageWithHotspot,
+} from "./ImageHotspotField.js";
+export {
+  ImageHotspotField,
+  parseImageHotspotValue,
+  serializeImageHotspotValue,
+} from "./ImageHotspotField.js";
 export type {
   SearchPaletteProps,
   SearchPaletteResult,

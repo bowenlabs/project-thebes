@@ -3,11 +3,16 @@ import {
   createEffect,
   createSignal,
   For,
+  type JSX,
   lazy,
   Show,
   Suspense,
 } from "solid-js";
 import type { CollectionCapabilities } from "./capabilities.js";
+import type { FieldWidgetProps } from "./ImageHotspotField.js";
+
+/** A custom per-field editor, registered via `fieldWidgets`. */
+export type FieldWidget = (props: FieldWidgetProps) => JSX.Element;
 
 // Dynamic import, not a static one — @tiptap/core + @tiptap/starter-kit
 // are a large dependency (pushed a consuming route's bundle from ~9KB to
@@ -91,6 +96,13 @@ export interface CollectionEditProps {
    * consuming route) since `CollectionEdit` has no router access itself.
    */
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Per-field custom editor widgets (issue #17), keyed by field name. When a
+   * field has a widget here, it's rendered instead of the generic input for
+   * that field's type — e.g. `{ heroImage: ImageHotspotField }`. The widget
+   * receives the field value, a setter, and `onUploadFile`.
+   */
+  fieldWidgets?: Record<string, FieldWidget>;
   /** Only rendered when `config.versions?.drafts` is also true. */
   draftActions?: DraftActions;
   /**
@@ -105,6 +117,7 @@ export interface CollectionEditProps {
 interface RenderContext {
   onUploadFile?: (file: File) => Promise<{ url: string }>;
   relationshipOptions?: Partial<Record<string, RelationshipOption[]>>;
+  fieldWidgets?: Record<string, FieldWidget>;
 }
 
 export function CollectionEdit(props: CollectionEditProps) {
@@ -143,6 +156,7 @@ export function CollectionEdit(props: CollectionEditProps) {
   const ctx: RenderContext = {
     onUploadFile: props.onUploadFile,
     relationshipOptions: props.relationshipOptions,
+    fieldWidgets: props.fieldWidgets,
   };
 
   const versioned = () => props.config.versions?.drafts && props.draftActions;
@@ -256,6 +270,18 @@ function renderInput(
   setField: (key: string, value: unknown) => void,
   ctx: RenderContext,
 ) {
+  // A registered custom widget wins over the generic type-based input (#17).
+  const Widget = ctx.fieldWidgets?.[key];
+  if (Widget) {
+    return (
+      <Widget
+        fieldKey={key}
+        value={value}
+        setValue={(v) => setField(key, v)}
+        onUploadFile={ctx.onUploadFile}
+      />
+    );
+  }
   switch (field.type) {
     case "text":
       return (
