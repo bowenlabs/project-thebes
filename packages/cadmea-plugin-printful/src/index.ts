@@ -8,4 +8,5 @@
 // for print-on-demand fulfillment, and mount `createFulfillmentWebhookHandler`
 // for inbound shipment-status webhooks.
 
+export * from "./pricing.js";
 export * from "./provider.js";
