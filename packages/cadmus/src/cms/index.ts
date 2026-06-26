@@ -1,6 +1,7 @@
 // Copyright (c) 2026 BowenLabs. All rights reserved.
 // Cadmus is MIT licensed. See LICENSE in the repo root.
 
+export * from "./blocks.js";
 export * from "./codegen.js";
 export * from "./defineCollection.js";
 export * from "./localApi.js";
