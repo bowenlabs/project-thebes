@@ -97,7 +97,7 @@ jobs:
   test-cadmea-pkg:
     name: Test Cadmea admin-UI components
     runs-on: ubuntu-latest
-    needs: lint
+    needs: build-cadmus
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -106,6 +106,12 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      # Cadmea now imports @thebes/cadmus at *runtime* (validateDocument for
+      # inline field validation), not just types — so cadmus's dist/ must
+      # exist before these tests can import it. Same fresh-runner reasoning as
+      # test-int/test-extensions above; cadmus is cadmea's only cross-package
+      # runtime dep, so build:cadmus is sufficient here.
+      - run: pnpm build:cadmus
       - run: pnpm test:cadmea-pkg
 
   test-int:

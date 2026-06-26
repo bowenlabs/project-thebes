@@ -25,8 +25,8 @@ describe("CollectionEdit", () => {
     render(() => (
       <CollectionEdit config={pagesCollection} onSubmit={() => {}} />
     ));
-    expect(screen.getByLabelText("title *")).toBeInTheDocument();
-    expect(screen.getByLabelText("status *")).toBeInTheDocument();
+    expect(screen.getByLabelText("Title *")).toBeInTheDocument();
+    expect(screen.getByLabelText("Status *")).toBeInTheDocument();
     expect(screen.queryByLabelText("id")).not.toBeInTheDocument();
   });
 
@@ -38,10 +38,10 @@ describe("CollectionEdit", () => {
         onSubmit={() => {}}
       />
     ));
-    expect(screen.getByLabelText("createdAt")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Created at")).toHaveAttribute("readonly");
   });
 
-  it("submits edited values, excluding date fields", () => {
+  it("submits edited values, excluding date fields", async () => {
     let submitted: Record<string, unknown> | undefined;
     render(() => (
       <CollectionEdit
@@ -52,11 +52,11 @@ describe("CollectionEdit", () => {
         }}
       />
     ));
-    fireEvent.input(screen.getByLabelText("title *"), {
+    fireEvent.input(screen.getByLabelText("Title *"), {
       target: { value: "Home" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(submitted).toEqual({ title: "Home" });
+    await vi.waitFor(() => expect(submitted).toEqual({ title: "Home" }));
   });
 
   it("shows the error message when provided", () => {
@@ -70,7 +70,7 @@ describe("CollectionEdit", () => {
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
   });
 
-  it("renders and submits checkbox fields as booleans", () => {
+  it("renders and submits checkbox fields as booleans", async () => {
     const config: CollectionConfig = {
       slug: "people",
       fields: { isActive: { type: "checkbox" } },
@@ -84,11 +84,11 @@ describe("CollectionEdit", () => {
         }}
       />
     ));
-    const checkbox = screen.getByLabelText("isActive") as HTMLInputElement;
+    const checkbox = screen.getByLabelText("Is active") as HTMLInputElement;
     expect(checkbox.type).toBe("checkbox");
     fireEvent.click(checkbox);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(submitted).toEqual({ isActive: true });
+    await vi.waitFor(() => expect(submitted).toEqual({ isActive: true }));
   });
 
   it("uploads a file via onUploadFile and submits the resolved URL", async () => {
@@ -109,18 +109,20 @@ describe("CollectionEdit", () => {
         }}
       />
     ));
-    const input = screen.getByLabelText("fileUrl *") as HTMLInputElement;
+    const input = screen.getByLabelText("File url *") as HTMLInputElement;
     await fireEvent.change(input, { target: { files: [file] } });
     expect(
       await screen.findByText("https://media.example.com/photo.png"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(submitted).toEqual({
-      fileUrl: "https://media.example.com/photo.png",
-    });
+    await vi.waitFor(() =>
+      expect(submitted).toEqual({
+        fileUrl: "https://media.example.com/photo.png",
+      }),
+    );
   });
 
-  it("renders relationship fields as a select populated from relationshipOptions, submitting the selected id", () => {
+  it("renders a relationship field as a searchable combobox, submitting the chosen id", async () => {
     const config: CollectionConfig = {
       slug: "comments",
       fields: { authorId: { type: "relationship", relationTo: "users" } },
@@ -140,25 +142,50 @@ describe("CollectionEdit", () => {
         }}
       />
     ));
-    const select = screen.getByLabelText("authorId") as HTMLSelectElement;
-    expect(screen.getByText("Ada")).toBeInTheDocument();
-    fireEvent.change(select, { target: { value: "2" } });
+    const combobox = screen.getByLabelText("Author id") as HTMLInputElement;
+    expect(combobox).toHaveAttribute("role", "combobox");
+    // Filter to "Grace", then pick it from the listbox.
+    fireEvent.focus(combobox);
+    fireEvent.input(combobox, { target: { value: "gra" } });
+    expect(screen.queryByText("Ada")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Grace"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(submitted).toEqual({ authorId: 2 });
+    await vi.waitFor(() => expect(submitted).toEqual({ authorId: 2 }));
   });
 
-  it("does not render a select for hasMany relationship fields", () => {
+  it("renders a hasMany relationship as a multi-select, adding and removing chips", async () => {
     const config: CollectionConfig = {
       slug: "posts",
       fields: {
         tagIds: { type: "relationship", relationTo: "tags", hasMany: true },
       },
     };
-    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
-    expect(screen.queryByLabelText("tagIds")).not.toBeInTheDocument();
+    let submitted: Record<string, unknown> | undefined;
+    render(() => (
+      <CollectionEdit
+        config={config}
+        relationshipOptions={{
+          tags: [
+            { id: 1, label: "React" },
+            { id: 2, label: "Solid" },
+          ],
+        }}
+        onSubmit={(values) => {
+          submitted = values;
+        }}
+      />
+    ));
+    const combobox = screen.getByLabelText("Tag ids") as HTMLInputElement;
+    fireEvent.focus(combobox);
+    fireEvent.click(screen.getByText("React"));
+    fireEvent.click(screen.getByText("Solid"));
+    // Both selected as chips; removing one leaves the other.
+    fireEvent.click(screen.getByRole("button", { name: "Remove React" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => expect(submitted).toEqual({ tagIds: [2] }));
   });
 
-  it("adds, fills, and removes array items, submitting the resulting array", () => {
+  it("adds, fills, and removes array items, submitting the resulting array", async () => {
     const config: CollectionConfig = {
       slug: "forms",
       fields: {
@@ -177,15 +204,17 @@ describe("CollectionEdit", () => {
         }}
       />
     ));
-    fireEvent.click(screen.getByRole("button", { name: "Add links" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add links" }));
-    const labelInputs = screen.getAllByLabelText("label *");
+    fireEvent.click(screen.getByRole("button", { name: "Add Links" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Links" }));
+    const labelInputs = screen.getAllByLabelText("Label *");
     expect(labelInputs).toHaveLength(2);
     fireEvent.input(labelInputs[0], { target: { value: "First" } });
     fireEvent.input(labelInputs[1], { target: { value: "Second" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[1]);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(submitted).toEqual({ links: [{ label: "First" }] });
+    await vi.waitFor(() =>
+      expect(submitted).toEqual({ links: [{ label: "First" }] }),
+    );
   });
 
   it("disables Save and shows a spinner while saving", () => {
@@ -227,11 +256,11 @@ describe("CollectionEdit", () => {
       />
     ));
     expect(dirtyStates).toEqual([false]);
-    fireEvent.input(screen.getByLabelText("title *"), {
+    fireEvent.input(screen.getByLabelText("Title *"), {
       target: { value: "Changed" },
     });
     expect(dirtyStates).toEqual([false, true]);
-    fireEvent.input(screen.getByLabelText("title *"), {
+    fireEvent.input(screen.getByLabelText("Title *"), {
       target: { value: "Home" },
     });
     expect(dirtyStates).toEqual([false, true, false]);
@@ -276,7 +305,7 @@ describe("CollectionEdit", () => {
       screen.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.input(screen.getByLabelText("title *"), {
+    fireEvent.input(screen.getByLabelText("Title *"), {
       target: { value: "Updated" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
@@ -368,5 +397,216 @@ describe("CollectionEdit", () => {
     await vi.waitFor(() => {
       expect(document.getElementById("body")).toBeInTheDocument();
     });
+  });
+});
+
+describe("CollectionEdit — admin field metadata (A)", () => {
+  it("humanizes the field key when no admin.label is set", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: { metaDescription: { type: "text" } },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    expect(screen.getByLabelText("Meta description")).toBeInTheDocument();
+  });
+
+  it("uses admin.label over the humanized key", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: {
+        metaDescription: { type: "text", admin: { label: "SEO blurb" } },
+      },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    expect(screen.getByLabelText("SEO blurb")).toBeInTheDocument();
+  });
+
+  it("renders admin.description as help text", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: {
+        title: {
+          type: "text",
+          admin: { description: "Shown in the browser tab" },
+        },
+      },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    expect(screen.getByText("Shown in the browser tab")).toBeInTheDocument();
+  });
+
+  it("groups fields into a titled fieldset by admin.group", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: {
+        title: { type: "text" },
+        metaTitle: { type: "text", admin: { group: "SEO" } },
+      },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    const legend = screen.getByText("SEO");
+    expect(legend.tagName).toBe("LEGEND");
+  });
+
+  it("renders a half-width field as a single grid column on md+", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: { title: { type: "text", admin: { width: "half" } } },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    const control = screen.getByLabelText("Title").closest(".form-control");
+    expect(control?.className).toContain("md:col-span-1");
+  });
+
+  it("renders an admin.readOnly text field as read-only", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: { slug: { type: "text", admin: { readOnly: true } } },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    expect(screen.getByLabelText("Slug")).toHaveAttribute("readonly");
+  });
+
+  it("hides a field whose admin.condition is false, and shows it when true", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: {
+        kind: { type: "select", options: ["plain", "promo"] },
+        promoCode: {
+          type: "text",
+          admin: {
+            condition: (values) => values.kind === "promo",
+          },
+        },
+      },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    expect(screen.queryByLabelText("Promo code")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Kind"), {
+      target: { value: "promo" },
+    });
+    expect(screen.getByLabelText("Promo code")).toBeInTheDocument();
+  });
+
+  it("surfaces a ValidationBuilder error inline and blocks submit", async () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: {
+        title: { type: "text", validation: (r) => r.required().min(2) },
+      },
+    };
+    let submitted: Record<string, unknown> | undefined;
+    render(() => (
+      <CollectionEdit
+        config={config}
+        onSubmit={(v) => {
+          submitted = v;
+        }}
+      />
+    ));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText(/not be empty/i)).toBeInTheDocument();
+    expect(submitted).toBeUndefined();
+
+    // Filling a valid value clears the error and lets the submit through.
+    fireEvent.input(screen.getByLabelText("Title"), {
+      target: { value: "Home" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() => expect(submitted).toEqual({ title: "Home" }));
+  });
+});
+
+describe("CollectionEdit — visual block builder (B)", () => {
+  const blocksConfig: CollectionConfig = {
+    slug: "pages",
+    fields: {
+      blocks: {
+        type: "array",
+        fields: { type: { type: "select", options: ["hero", "text"] } },
+        discriminator: {
+          key: "type",
+          variants: {
+            hero: { heading: { type: "text", required: true } },
+            text: { body: { type: "text" } },
+          },
+          variantsAdmin: {
+            hero: { label: "Hero banner", icon: "ph ph-image" },
+          },
+        },
+      },
+    },
+  };
+
+  it("offers an Add-block picker with one entry per variant (admin label or humanized)", () => {
+    render(() => <CollectionEdit config={blocksConfig} onSubmit={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add block" }));
+    expect(
+      screen.getByRole("menuitem", { name: "Hero banner" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Text" })).toBeInTheDocument();
+  });
+
+  it("adds a block of the chosen variant, presetting its type and showing its fields", () => {
+    render(() => <CollectionEdit config={blocksConfig} onSubmit={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add block" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Hero banner" }));
+    // The hero variant's field is shown, and the block header reflects the type.
+    expect(screen.getByLabelText("Heading *")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hero banner" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reorders blocks with Move down, reflecting the new order on submit", async () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: { items: { type: "array", fields: { label: { type: "text" } } } },
+    };
+    let submitted: Record<string, unknown> | undefined;
+    render(() => (
+      <CollectionEdit config={config} onSubmit={(v) => (submitted = v)} />
+    ));
+    fireEvent.click(screen.getByRole("button", { name: "Add Items" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Items" }));
+    const labels = screen.getAllByLabelText("Label");
+    fireEvent.input(labels[0], { target: { value: "A" } });
+    fireEvent.input(labels[1], { target: { value: "B" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Move down" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() =>
+      expect(submitted).toEqual({ items: [{ label: "B" }, { label: "A" }] }),
+    );
+  });
+
+  it("duplicates a block", async () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: { items: { type: "array", fields: { label: { type: "text" } } } },
+    };
+    let submitted: Record<string, unknown> | undefined;
+    render(() => (
+      <CollectionEdit config={config} onSubmit={(v) => (submitted = v)} />
+    ));
+    fireEvent.click(screen.getByRole("button", { name: "Add Items" }));
+    fireEvent.input(screen.getByLabelText("Label"), { target: { value: "A" } });
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await vi.waitFor(() =>
+      expect(submitted).toEqual({ items: [{ label: "A" }, { label: "A" }] }),
+    );
+  });
+
+  it("collapses a block to hide its fields", () => {
+    const config: CollectionConfig = {
+      slug: "pages",
+      fields: { items: { type: "array", fields: { label: { type: "text" } } } },
+    };
+    render(() => <CollectionEdit config={config} onSubmit={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Items" }));
+    expect(screen.getByLabelText("Label")).toBeInTheDocument();
+    // The header toggle is named after the block (the array label here).
+    fireEvent.click(screen.getByRole("button", { name: "Items" }));
+    expect(screen.queryByLabelText("Label")).not.toBeInTheDocument();
   });
 });
