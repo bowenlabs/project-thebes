@@ -65,7 +65,7 @@ describe("createStripePaymentProvider", () => {
       const provider = createStripePaymentProvider(config);
       const id = await provider.findOrCreateCustomer("b@example.com", "idem-2");
       expect(id).toBe("cus_new");
-      expect(seenIdempotencyHeader).toBe("idem-2");
+      expect(seenIdempotencyHeader).toBe("idem-2:customer");
       expect(seenBody?.get("email")).toBe("b@example.com");
       // The idempotency key must never leak into the form body — that's
       // the whole point of the header-vs-body distinction from Square.
@@ -119,7 +119,7 @@ describe("createStripePaymentProvider", () => {
       expect(seenBody?.get("currency")).toBe("usd");
       expect(seenBody?.get("payment_method")).toBe("pm_abc");
       expect(seenBody?.get("confirm")).toBe("true");
-      expect(seenIdempotencyHeader).toBe("idem-3");
+      expect(seenIdempotencyHeader).toBe("idem-3:payment_intent");
     });
 
     it("maps a requires_action PaymentIntent status to the normalized status", async () => {
